@@ -16,7 +16,7 @@
       "title": "《西市盐引分赃账》",
       "grade": "要案",
       "target": "户部主事",
-      "desc": "详录户部主事私吞盐税的铁证，可顺藤摸瓜拿人，或直接敲诈。"
+      "desc": "详录户部主事私吞盐税的铁证。审破钱万贯防线后，可赴京城缉拿周文礼。"
     },
     "next_target_id": "p_hubu_clerk"
   },
@@ -34,10 +34,10 @@
     "loot_silver": 350,
     "unlocks_dossier": {
       "id": "d_hubu_minister",
-      "title": "《户部侍郎军饷亏空密账》",
+      "title": "《军饷密账》",
       "grade": "绝密",
       "target": "户部侍郎",
-      "desc": "扳倒户部侍郎的致命铁证（完成首份御前 KPI 的关键底牌）。"
+      "desc": "抄查周文礼府邸所得。缉拿户部侍郎后，可直接御前弹劾，完成首份御前 KPI。"
     },
     "next_target_id": "p_hubu_minister"
   },

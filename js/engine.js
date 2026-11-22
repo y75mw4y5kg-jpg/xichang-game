@@ -17,12 +17,16 @@
     hall: ["西厂大堂", 400, 1000], jail: ["诏狱", 300], archive: ["密档阁", 300]
   };
   const merchant = "p_salt_merchant";
+  const clerk = "p_hubu_clerk";
+  const coreEvidence = "d_hubu_minister";
   const minister = "p_hubu_minister";
   let intro, events, people, evidence, s, view, adBusy = false, storageWarning = "";
-  const maxAp = () => s.crew.length ? s.crew.length + 1 : 0;
+  const maxAp = () => s.crew.length;
+  const tortureDamage = () => s.crew.includes("刑讯老手") ? 25 : 35;
   const capacity = () => 1 + 2 * s.hall;
   const jailCap = () => 2 * s.jail - 1;
   const cardCap = () => 3 * s.archive;
+  const ordinaryCards = () => s.cards.filter(id => id !== coreEvidence).length;
   const fee = () => s.crew.includes("京城地头蛇") ? 5 : 10;
 
   function fresh() {
@@ -171,7 +175,7 @@
     }
   }
   function finish(word) {
-    if (!s.favor || !s.dread || s.ending) {
+    if ((!s.favor && s.phase !== "rescue") || !s.dread || s.ending) {
       s.ending ||= !s.favor ? "圣心已失，午门斩首" : "沦为笑柄，西厂裁撤";
       if (s.phase !== "ending") sound.play("alert");
       s.phase = "ending";
@@ -187,37 +191,67 @@
     const locations = places.map((_, i) => i);
     const count = pick([2, 3]);
     const jobs = [];
-    const lead = s.leads.find(id => !s.captured.includes(id));
+    const lead = nextTarget();
     for (let i = 0; i < count; i++) {
       const place = locations.splice(Math.floor(Math.random() * locations.length), 1)[0];
       let kind = pick(["silver", "intel"]);
       if (Math.random() < (15 + s.intel / 2) / 100) kind = "card";
       if (i === 0 && lead) jobs.push({place, kind: "capture", target: lead});
-      else if (i === 0 && !s.inmates.length && !s.leads.length)
-        jobs.push({place, kind: "capture", target: merchant});
       else jobs.push({place, kind});
     }
     return jobs;
   }
+  function nextTarget() {
+    // A dead or dismissed lead can be arrested again if its successor is still locked.
+    const target = s.leads.includes(minister) ? minister : s.leads.includes(clerk) ? clerk : merchant;
+    if ((target === minister && s.captured.includes(minister) && s.cards.includes(coreEvidence)) ||
+        s.inmates.some(p => p.id === target)) return null;
+    return target;
+  }
+  function unlockLead(id) {
+    if (s.leads.includes(id)) return;
+    s.leads.push(id);
+    offerTarget(id);
+  }
+  function offerTarget(id) {
+    if (!id || s.jobs.some(job => job.target === id)) return;
+    const spare = places.findIndex((_, place) => !s.jobs.some(job => job.place === place));
+    if (spare >= 0) s.jobs.push({place: spare, kind: "capture", target: id});
+  }
+  function finishKpi() {
+    if (!s.defeated.includes(minister)) s.defeated.push(minister);
+    s.ending = "奉旨提督，权倾朝野";
+  }
+
   function jobName(job) {
-    return job.target ? "缉拿" + people[job.target].title :
+    return job.target ? "缉拿" + (job.target === minister ? "户部侍郎" :
+      people[job.target].title + people[job.target].name) :
       {silver: "查缉走私", intel: "探听密会", card: "搜查暗账"}[job.kind];
   }
   function storeCard(id) {
-    if (s.cards.length >= cardCap()) return false;
+    const title = evidence[id].title;
+    if (s.cards.includes(id)) {
+      effect({silver: 50, intel: 5});
+      return title + "已在密档，折为银两 +50、情报 +5。";
+    }
+    if (id !== coreEvidence && ordinaryCards() >= cardCap()) {
+      effect({intel: 10});
+      return "密档已满，转录" + title + "摘要，情报 +10。";
+    }
     s.cards.push(id);
-    return true;
+    return "缴获" + title + "。";
   }
   function settle(job) {
     if (job.kind === "capture") {
       const p = people[job.target];
+      if (s.inmates.some(inmate => inmate.id === p.id)) return p.name + "已在押。";
       if (s.inmates.length >= jailCap()) return "牢房已满，目标暂缓收押。";
       s.inmates.push({id: p.id, defense: p.defense, health: p.health,
         compliance: p.compliance, last: 0, quote: p.intro_quote});
       if (!s.captured.includes(p.id)) s.captured.push(p.id);
       return p.name + "已收押诏狱。";
     }
-    if (job.kind === "card" && storeCard("d_hubu_clerk")) return "缴获《西市盐引分赃账》。";
+    if (job.kind === "card") return storeCard("d_hubu_clerk");
     if (job.kind === "silver") {
       const amount = pick([50, 70, 90]);
       effect({silver: amount});
@@ -226,12 +260,14 @@
     effect({intel: 10});
     return "带回情报 +10。";
   }
-  function canEnd() {
-    return s.turn === 1 ? s.crew.length > 0 : s.turn === 2 ? s.jobs.some(j => j.sent) :
-      s.turn !== 3 || s.questioned;
+  function endBlockReason() {
+    if (s.turn === 1 && !s.crew.length) return "请先招募一队番子";
+    if (s.turn === 2 && !s.jobs.some(j => j.sent)) return "请先派驻西市缉拿盐商";
+    if (s.turn === 3 && !s.questioned) return "请先在诏狱审讯盐商";
+    return "";
   }
   function endTurn() {
-    if (s.phase !== "play" || !canEnd()) return;
+    if (s.phase !== "play" || endBlockReason()) return;
     const lines = s.jobs.filter(j => j.sent).map(j => places[j.place][0] + "：" + settle(j));
     if (s.spies) {
       effect({intel: 5 * s.spies});
@@ -265,14 +301,25 @@
     $("game-shell").querySelector(".stage-container").inert = Boolean(id) || s.phase === "intro";
     document.querySelector(".bottom-nav").inert = Boolean(id) || s.phase === "intro";
   }
+  function effectsText(effects) {
+    const labels = {favor: "圣眷", dread: "威慑", silver: "银两", intel: "情报"};
+    return Object.entries(effects).map(([key, value]) =>
+      labels[key] + (value > 0 ? "+" : "") + value).join(" · ");
+  }
+  function addPreview(button, text) {
+    button.append(node("small", "action-preview", text));
+    return button;
+  }
   function choices(tag, title, desc, options) {
     $("event-tag").textContent = tag;
     $("event-title").textContent = title;
     $("event-desc").textContent = desc;
     $("event-trump-btn").style.display = "none";
-    $("event-choices").replaceChildren(...options.map(([seal, label, action, disabled]) => {
-      const b = button(label, action, "choice-btn", disabled);
-      b.prepend(node("span", "seal-badge", seal));
+    $("event-choices").replaceChildren(...options.map(([seal, label, action, disabled, preview]) => {
+      const b = button("", action, "choice-btn", disabled);
+      const copy = node("span", "", label);
+      copy.append(node("small", "action-preview", preview || "返回前一界面"));
+      b.append(node("span", "seal-badge", seal), copy);
       return b;
     }));
     modal("modal-event");
@@ -300,7 +347,7 @@
   }
   function shortFunds() {
     choices("库银告急", "银两不足", "可调拨厂公私房银 200 两。", [
-      ["调", "看广告领银", fund], ["退", "返回", render]
+      ["调", "看广告领银", fund, false, "银两+200"], ["退", "返回", render]
     ]);
   }
   function recruit() {
@@ -309,8 +356,8 @@
     effect({silver: -100});
     const trait = pick(traits);
     s.crew.push(trait);
-    s.ap += s.crew.length === 1 ? 2 : 1;
-    s.note = (s.crew.length === 1 ? "首募成军，亲随与新番子共两队" : "新番子入署") + "，词条【" + trait + "】。";
+    s.ap++;
+    s.note = "新番子入署，词条【" + trait + "】。";
     finish("录用");
   }
   function upgrade(key) {
@@ -323,9 +370,10 @@
       finish("准建");
     }
     choices("营造", name + "升至 Lv." + (s[key] + 1), "工料银 " + cost + " 两。", [
-      ["准", "照价拨款", () => s.silver >= cost ? buy(cost) : shortFunds()],
+      ["准", "照价拨款", () => s.silver >= cost ? buy(cost) : shortFunds(), false, "银两-" + cost + " · 等级+1"],
       ["督", "看广告半价督办 · " + cost / 2 + " 两", () => s.silver >= cost / 2 ?
-        window.triggerRewardedAd("instant_upgrade", () => buy(cost / 2)) : shortFunds()],
+        window.triggerRewardedAd("instant_upgrade", () => buy(cost / 2)) : shortFunds(), false,
+        "银两-" + cost / 2 + " · 等级+1"],
       ["退", "返回", render]
     ]);
   }
@@ -348,7 +396,7 @@
     if (method === "torture") {
       sound.play("hit");
       p.defense -= 35;
-      p.health -= s.crew.includes("刑讯老手") ? 25 : 35;
+      p.health -= tortureDamage();
       p.quote = source.torture_quote;
     } else if (method === "threat") {
       p.defense -= 20;
@@ -366,44 +414,64 @@
       effect({favor: -20});
       s.phase = "rescue";
     }
+    if (!p.defense && p.health && p.id === merchant) unlockLead(source.next_target_id);
     finish("审");
-    if (method === "torture") animate($("prison-container").children[s.inmates.indexOf(p)]
+    if (method === "torture") animate($("prison-container").querySelectorAll(".prisoner-card")[s.inmates.indexOf(p)]
       .querySelector("img"), "hit");
   }
   function dispose(p, action, multiplier = 1) {
     const src = people[p.id];
-    if (src.unlocks_dossier && !storeCard(src.unlocks_dossier.id)) {
-      choices("密档已满", "先腾出一格密档", "口供仍在，可在密档页使用一份把柄。", [["退", "返回", render]]);
-      return;
-    }
-    if (action === "loot") {
+    if (p.id === clerk && action !== "loot" && !s.leads.includes(minister)) return;
+    if (action === "impeach") {
+      effect({favor: 20});
+      finishKpi();
+    } else if (action === "loot") {
       effect({silver: src.loot_silver * multiplier});
-      if (src.next_target_id && !s.leads.includes(src.next_target_id)) s.leads.push(src.next_target_id);
+      if (p.id === clerk) unlockLead(src.next_target_id);
     } else if (action === "spy") s.spies++;
     else effect({favor: 15, dread: 10});
+    if (src.unlocks_dossier) s.note = storeCard(src.unlocks_dossier.id);
     s.inmates.splice(s.inmates.indexOf(p), 1);
-    finish({loot: "抄家", spy: "留用", credit: "请功"}[action]);
+    finish({loot: "抄家", spy: "留用", credit: "请功", impeach: "弹劾"}[action]);
   }
   function loot(p) {
     const amount = people[p.id].loot_silver;
+    const cue = p.id === clerk ? " · 《军饷密账》与侍郎线索" :
+      p.id === merchant ? " · 缴获盐引账" : "";
     choices("结案", "查抄家产", "账上计银 " + amount + " 两。", [
-      ["抄", "收缴入库，追查上级", () => dispose(p, "loot")],
-      ["查", "看广告严查暗格，银两翻倍", () => window.triggerRewardedAd("double_loot", () => dispose(p, "loot", 2))],
+      ["抄", "收缴入库", () => dispose(p, "loot"), false, "银两+" + amount + cue],
+      ["查", "看广告严查暗格", () => window.triggerRewardedAd("double_loot", () => dispose(p, "loot", 2)),
+        false, "银两+" + amount * 2 + cue],
       ["退", "返回", render]
     ]);
+  }
+
+  function mainQuest() {
+    if (s.captured.includes(minister) && !nextTarget()) {
+      return s.cards.includes(coreEvidence) ? "密档可凭《军饷密账》直接弹劾，或审破侍郎防线后凭口供弹劾。" :
+        "审破侍郎防线后，凭口供御前弹劾。";
+    }
+    if (s.leads.includes(minister)) return "赴京城派驻【缉拿户部侍郎】，旬末收押。";
+    if (s.inmates.some(p => p.id === clerk)) return "审破周文礼防线并抄家，必得《军饷密账》。";
+    if (s.leads.includes(clerk)) return "赴京城派驻【缉拿户部主事周文礼】，旬末收押。";
+    if (s.inmates.some(p => p.id === merchant)) return "审破钱万贯防线，查出周文礼，再处置钱万贯腾出牢房。";
+    return "去京城缉拿私盐商钱万贯，再回营结旬。";
   }
 
   function renderCamp() {
     $("camp-bg-img").setAttribute("src", "./assets/camp_lv" + Math.min(2, s.hall) + ".jpg");
     $("camp-level-name").textContent = "西厂 · " + ["破败空宅", "肃杀厂署", "权倾朝野"][s.hall - 1] + " (Lv." + s.hall + ")";
     $("camp-capacity-text").textContent = "番子编制：" + maxAp() + " / " + capacity() + " 队";
-    const hints = ["先招募一队番子，领两点行动力开张。", "去京城西市缉拿私盐商，再回营结旬。",
-      "去诏狱审一次盐商。抄家可追查上级。", "本旬起须在旬末批阅奏折。", "可升级建筑、动用密档了。"];
-    $("camp-thought").textContent = [storageWarning, s.note, hints[s.turn - 1] ||
-      "抄家追查上级，派驻缉拿户部侍郎，再凭军饷密账弹劾。", s.crew.join(" · ")].filter(Boolean).join(" ");
+    const hint = s.turn === 1 ? "先招募一队番子，获得 1 点行动点。" : mainQuest();
+    const roster = [...new Set(s.crew)];
+    if (s.note.startsWith("新番子入署")) roster.splice(roster.indexOf(s.crew[s.crew.length - 1]), 1);
+    $("camp-thought").textContent = [storageWarning, s.note, hint,
+      roster.length ? "已招募词条：" + roster.join(" · ") : ""].filter(Boolean).join(" ");
     $("btn-recruit").disabled = maxAp() >= capacity();
     $("btn-recruit").textContent = s.turn === 1 && !s.crew.length ? "招募首队 ◂" : "招募";
-    $("btn-end-turn").disabled = !canEnd();
+    const blocked = endBlockReason();
+    $("btn-end-turn").disabled = Boolean(blocked);
+    $("btn-end-turn").textContent = blocked || (s.turn >= 4 ? "结束本旬 · 批阅奏折" : "结束本旬");
     const list = $("building-list");
     list.replaceChildren();
     if (s.turn >= 5) for (const [key, [name, ...costs]] of Object.entries(buildings)) {
@@ -428,11 +496,13 @@
       return b;
     }));
     $("map-dispatch-summary").textContent = "每处耗 1 行动点、" + fee() + " 两。 " +
-      s.jobs.map(j => places[j.place][0] + " · " + jobName(j) + (j.sent ? "（已派驻）" : "")).join("；");
+      s.jobs.map(j => places[j.place][0] + " · " + jobName(j) + (j.sent ? "（已派驻）" : "")).join("；") +
+      " " + mainQuest();
   }
   function renderPrison() {
     const list = $("prison-container");
     list.replaceChildren();
+    list.append(node("div", "map-log-box", [s.note, mainQuest()].filter(Boolean).join(" ")));
     if (!s.inmates.length) list.append(node("div", "map-log-box", "诏狱空无一人，可在京城派驻抓捕目标。"));
     for (const p of s.inmates) {
       const src = people[p.id];
@@ -458,20 +528,35 @@
       }
       const actions = node("div", "prison-actions");
       const used = p.last === s.turn;
-      if (p.defense) {
-        actions.append(button("动用大刑", () => interrogate(p, "torture"), "prison-btn torture", used),
-          button("威逼 · 威慑40", () => interrogate(p, "threat"), "prison-btn", used || s.dread < 40),
-          button("利诱 · 30两", () => interrogate(p, "bribe"), "prison-btn", used));
+      if (p.defense && p.health) {
+        const torture = addPreview(button("动用大刑", () => interrogate(p, "torture"), "prison-btn torture", used),
+          "防线-35 · 体魄-" + tortureDamage());
+        if (p.health <= 25) torture.append(node("strong", "lethal-warning", "（极易致死！）"));
+        actions.append(torture,
+          addPreview(button("威逼", () => interrogate(p, "threat"), "prison-btn", used || s.dread < 40),
+            "需威慑≥40 · 防线-20"),
+          addPreview(button("利诱", () => interrogate(p, "bribe"), "prison-btn", used),
+            "银两-30 · 防线-15 · 体魄+10 · 顺从+25"));
         if (used) card.append(node("div", "action-card-meta", "本旬已审，来旬再问。"));
-      } else actions.append(button("抄家追查", () => loot(p), "prison-btn"),
-        button("御前请功", () => dispose(p, "credit"), "prison-btn"),
-        button("策反 · 顺从60", () => dispose(p, "spy"), "prison-btn", p.compliance < 60));
+      } else if (p.health) {
+        if (p.id === minister) actions.append(addPreview(
+          button("凭口供御前弹劾", () => dispose(p, "impeach"), "prison-btn"), "圣眷+20 · 完成 KPI"));
+        else {
+          const mustLoot = p.id === clerk && !s.leads.includes(minister);
+          actions.append(addPreview(button("抄家追查", () => loot(p), "prison-btn"),
+            "银两+" + src.loot_silver + (p.id === clerk ? " · 必得《军饷密账》" : " · 缴获盐引账")),
+            addPreview(button("御前请功", () => dispose(p, "credit"), "prison-btn", mustLoot),
+              mustLoot ? "主线须先抄家取证" : "圣眷+15 · 威慑+10"),
+            addPreview(button("策反留用", () => dispose(p, "spy"), "prison-btn", mustLoot || p.compliance < 60),
+              mustLoot ? "主线须先抄家取证" : "需顺从≥60 · 每旬情报+5"));
+        }
+      }
       card.append(actions);
       list.append(card);
     }
   }
   function renderCards() {
-    $("dossier-count").textContent = "已藏：" + s.cards.length + " / " + cardCap();
+    $("dossier-count").textContent = "已藏：" + ordinaryCards() + " / " + cardCap() + (s.cards.includes(coreEvidence) ? " · 核心 1" : "");
     const list = $("dossier-list");
     list.replaceChildren();
     if (!s.cards.length) list.append(node("div", "map-log-box", "尚无把柄。审讯或暗访可获取铁证。"));
@@ -483,17 +568,17 @@
       const btns = node("div", "dossier-btns");
       const target = Object.values(people).find(p => p.title.startsWith(d.target)).id;
       const needCapture = target === minister && !s.captured.includes(minister);
-      btns.append(button("敲诈 · 200两", () => {
+      btns.append(addPreview(button("私下敲诈", () => {
         s.cards.splice(i, 1);
-        effect({silver: 200, dread: 5});
+        effect({silver: 120, dread: 5, favor: -5});
         finish("索银");
-      }), button(needCapture ? "待缉拿侍郎" : "御前弹劾", () => {
+      }), "银两+120 · 圣眷-5 · 威慑+5"), addPreview(button(needCapture ? "待缉拿侍郎" : "御前弹劾", () => {
         s.cards.splice(i, 1);
         effect({favor: 20});
-        if (!s.defeated.includes(target)) s.defeated.push(target);
-        if (target === minister) s.ending = "奉旨提督，权倾朝野";
+        if (target === minister) finishKpi();
+        else if (!s.defeated.includes(target)) s.defeated.push(target);
         finish("弹劾");
-      }, "btn-primary", needCapture));
+      }, "btn-primary", needCapture), "圣眷+20" + (target === minister ? " · 完成 KPI" : "")));
       card.append(top, node("div", "dossier-title", d.title), node("div", "dossier-desc", d.desc), btns);
       list.append(card);
     });
@@ -504,11 +589,12 @@
     choices(ev.tag, ev.title, ev.desc, ev.choices.map(c => [c.seal, c.text, () => {
       effect(c.effects);
       nextTurn(c.seal);
-    }, s.silver < -(c.effects.silver || 0)]));
+    }, s.silver < -(c.effects.silver || 0), effectsText(c.effects)]));
     const index = s.cards.indexOf(ev.trump_dossier_id);
     if (index >= 0 && s.turn >= 5) {
       const trump = $("event-trump-btn");
       trump.textContent = ev.trump_text;
+      addPreview(trump, "消耗" + evidence[ev.trump_dossier_id].title + " · " + effectsText(ev.trump_effects));
       trump.style.display = "block";
       trump.onclick = () => {
         s.cards.splice(index, 1);
@@ -556,21 +642,24 @@
     else if (s.phase === "rescue") {
       const p = s.inmates.find(p => !p.health);
       choices("死无对证", people[p.id].name + "气绝", "圣眷 -20。太医尚可一试。", [
-        ["救", "看广告买通太医，恢复两成体魄", () => window.triggerRewardedAd("rescue_prisoner", () => {
-          p.health = Math.round(people[p.id].health * 0.2);
+        ["救", "看广告买通太医", () => window.triggerRewardedAd("rescue_prisoner", () => {
+          p.health = 20;
+          effect({favor: 10});
+          if (!p.defense && p.id === merchant) unlockLead(people[p.id].next_target_id);
           s.phase = "play";
           finish("赦");
-        })],
+        }), false, "体魄恢复至20 · 圣眷+10"],
         ["葬", "收殓结案", () => {
           s.inmates.splice(s.inmates.indexOf(p), 1);
+          offerTarget(nextTarget());
           s.phase = "play";
           finish("结案");
-        }]
+        }, false, "失去犯人"]
       ]);
     } else if (s.phase === "ending") {
       $("ending-title").textContent = s.ending;
       $("ending-desc").textContent = s.defeated.includes(minister) ?
-        "军饷密账呈上御前，侍郎伏法。西厂交出了首份功簿。" :
+        "侍郎伏法，西厂交出首份功簿。天子嘉许，进升厂公。" :
         "第 " + s.turn + " 旬，西厂止步于此。";
       modal("modal-ending");
     }
@@ -628,7 +717,7 @@
   }
 
   function saveProgress() {
-    localStorage.setItem(KEY, JSON.stringify({...s, view}));
+    localStorage.setItem(KEY, JSON.stringify({...s, view, version: 2}));
     storageWarning = "";
   }
 
@@ -638,11 +727,21 @@
     const saved = JSON.parse(raw);
     if (!saved || !Number.isInteger(saved.turn) || !Array.isArray(saved.inmates))
       throw new Error("存档格式有误");
-    return {...fresh(), ...saved};
+    const progress = {...fresh(), ...saved};
+    progress.cards = [...new Set(progress.cards)];
+    if (saved.version !== 2 && progress.crew.length) {
+      progress.ap = Math.max(0, progress.ap - 1);
+      progress.note = progress.note.replace("首募成军，亲随与新番子共两队", "新番子入署");
+    }
+    return progress;
   }
 
   function displayProgress(progress) {
     s = progress;
+    if (s.phase === "play" && s.turn >= 3) {
+      if (s.inmates.some(p => p.id === merchant && !p.defense && p.health)) unlockLead(clerk);
+      offerTarget(nextTarget());
+    }
     view = s.turn >= gates[s.view] ? s.view : s.phase === "rescue" ? "prison" : "camp";
     render();
     if (s.phase === "intro") showFrame();
