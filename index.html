@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>穿越西厂 · 厂公升职记</title>
+  <style>
+    :root {
+      --bg-void: #0c0b0a;
+      --bg-panel: #151311;
+      --bg-card: #1e1b18;
+      --gold-faint: rgba(197, 160, 89, 0.14);
+      --gold-dim: rgba(197, 160, 89, 0.32);
+      --gold-main: #c5a059;
+      --cinnabar: #9e2a2b;
+      --cinnabar-bright: #c43638;
+      --cinnabar-dim: rgba(158, 42, 43, 0.22);
+      --jade: #6b9071;
+      --text-main: #e8e2d5;
+      --text-sub: #bfb7a8;
+      --text-muted: #867d70;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg-void);
+      color: var(--text-main);
+      font-family: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* 主容器（移动端竖屏适配） */
+    .game-shell {
+      width: 100%;
+      max-width: 430px;
+      height: 100vh;
+      height: 100dvh;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--gold-faint);
+      border-right: 1px solid var(--gold-faint);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 全局宣纸微噪点层（不挡点击） */
+    .paper-noise {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 90;
+      opacity: 0.04;
+      background-image: radial-gradient(#fff 0.5px, transparent 0.5px);
+      background-size: 4px 4px;
+    }
+
+    /* 屏幕震动动效 */
+    .shake { animation: screenShake 0.28s cubic-bezier(.36,.07,.19,.97) both; }
+    @keyframes screenShake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(3px, 1px, 0); }
+      30%, 50%, 70% { transform: translate3d(-4px, -1px, 0); }
+      40%, 60% { transform: translate3d(4px, 0, 0); }
+    }
+
+    /* ==================== 0. 开局穿越分镜遮罩 ==================== */
+    .intro-overlay {
+      position: absolute;
+      inset: 0;
+      background: #070606;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 24px 20px 44px;
+      cursor: pointer;
+    }
+    .intro-overlay.hidden { display: none; }
+
+    .intro-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    .intro-bg.visible { opacity: 0.72; }
+    .intro-bg.zoom-in { animation: slowZoom 8s ease-out forwards; }
+    @keyframes slowZoom { from { transform: scale(1); } to { transform: scale(1.1); } }
+
+    .intro-vignette {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(7,6,6,0.3) 0%, rgba(7,6,6,0.95) 85%);
+      pointer-events: none;
+    }
+
+    .intro-box {
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid var(--gold-dim);
+      padding-top: 14px;
+      min-height: 110px;
+    }
+    .intro-speaker {
+      font-size: 12px;
+      color: var(--gold-main);
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+    .intro-text {
+      font-size: 16px;
+      line-height: 1.8;
+      color: var(--text-main);
+    }
+    .intro-text.modern_thought {
+      font-style: italic;
+      color: #d6cbb8;
+      border-left: 2px solid var(--cinnabar-bright);
+      padding-left: 10px;
+    }
+    .intro-hint {
+      position: relative;
+      z-index: 2;
+      text-align: right;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      margin-top: 16px;
+      animation: blink 1.6s infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+    /* ==================== 1. 顶部常驻状态栏 ==================== */
+    .top-bar {
+      flex-shrink: 0;
+      padding: 12px 14px 10px;
+      background: #12100e;
+      border-bottom: 1px solid var(--gold-dim);
+      z-index: 10;
+    }
+    .era-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .era-title { color: var(--gold-main); font-weight: bold; }
+    .ap-indicator { display: inline-flex; align-items: center; gap: 5px; color: var(--text-sub); }
+    .ap-dots { display: inline-flex; gap: 4px; }
+    .ap-dot { width: 7px; height: 7px; border: 1px solid var(--gold-main); transform: rotate(45deg); }
+    .ap-dot.filled { background: var(--cinnabar-bright); border-color: var(--cinnabar-bright); }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .stat-item {
+      position: relative;
+      text-align: center;
+      padding: 5px 4px;
+      border: 1px solid var(--gold-faint);
+      background: rgba(0, 0, 0, 0.3);
+    }
+    .stat-label { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; }
+    .stat-value { font-size: 16px; font-weight: bold; color: var(--gold-main); font-variant-numeric: tabular-nums; }
+    .stat-bar-track { height: 2px; background: #2a2622; margin-top: 4px; overflow: hidden; }
+    .stat-bar-fill { height: 100%; background: var(--gold-main); transition: width 0.35s ease; }
+    .stat-bar-fill.danger { background: var(--cinnabar-bright); }
+
+    .stat-delta {
+      position: absolute; top: -6px; right: 4px;
+      font-size: 11px; font-weight: bold; pointer-events: none;
+      animation: floatUpFade 1s ease-out forwards;
+    }
+    .stat-delta.up { color: var(--jade); }
+    .stat-delta.down { color: var(--cinnabar-bright); }
+    @keyframes floatUpFade { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-14px); } }
+
+    /* KPI 进度条提示 */
+    .kpi-banner {
+      display: none;
+      background: var(--cinnabar-dim);
+      border-bottom: 1px solid var(--cinnabar);
+      padding: 6px 14px;
+      font-size: 11.5px;
+      color: #f3d0d0;
+      letter-spacing: 0.5px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .kpi-banner.visible { display: flex; }
+
+    /* ==================== 2. 中间主舞台 ==================== */
+    .stage-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      scrollbar-width: none;
+    }
+    .stage-container::-webkit-scrollbar { display: none; }
+
+    .view-panel { display: none; flex-direction: column; gap: 12px; animation: fadeIn 0.2s ease; }
+    .view-panel.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* --- 视图 1：大本营 (#view-camp) --- */
+    .camp-hero {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border: 1px solid var(--gold-dim);
+      background: #0d0c0b;
+      overflow: hidden;
+    }
+    .camp-hero img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      animation: subtleBreath 6s ease-in-out infinite alternate;
+    }
+    @keyframes subtleBreath { from { transform: scale(1); } to { transform: scale(1.03); } }
+    .camp-hero::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(to bottom, transparent 45%, rgba(21,19,17,0.95) 100%);
+      pointer-events: none;
+    }
+    .camp-title-overlay {
+      position: absolute; bottom: 10px; left: 12px; right: 12px; z-index: 2;
+      display: flex; justify-content: space-between; align-items: flex-end;
+    }
+    .camp-name { font-size: 17px; font-weight: bold; color: var(--gold-main); letter-spacing: 2px; }
+    .camp-sub { font-size: 11px; color: var(--text-sub); }
+
+    .thought-bubble {
+      background: rgba(197, 160, 89, 0.06);
+      border-left: 2px solid var(--gold-main);
+      padding: 8px 10px;
+      font-size: 12.5px;
+      font-style: italic;
+      color: var(--text-sub);
+      line-height: 1.5;
+    }
+
+    .action-card {
+      background: var(--bg-card);
+      border: 1px solid var(--gold-dim);
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .action-card-title { font-size: 15px; font-weight: bold; color: var(--text-main); letter-spacing: 1px; margin-bottom: 3px; }
+    .action-card-meta { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+    .action-card-cost { color: var(--gold-main); }
+
+    .btn-primary {
+      background: var(--cinnabar);
+      border: 1px solid var(--cinnabar-bright);
+      color: #f7e9e9;
+      font-family: inherit;
+      font-size: 13px;
+      letter-spacing: 2px;
+      padding: 8px 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-primary:disabled { background: transparent; border-color: var(--gold-faint); color: var(--text-muted); cursor: not-allowed; }
+
+    .btn-end-turn {
+      width: 100%;
+      padding: 13px;
+      margin-top: 4px;
+      background: linear-gradient(180deg, #9e2a2b 0%, #7a1e1f 100%);
+      border: 1px solid var(--gold-main);
+      color: #f5e9d6;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      cursor: pointer;
+    }
+
+    /* --- 视图 2：京城沙盘 (#view-map) --- */
+    .map-board {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border: 1px solid var(--gold-dim);
+      background: #100e0d;
+      overflow: hidden;
+    }
+    .map-board img { width: 100%; height: 100%; object-fit: cover; opacity: 0.78; display: block; }
+
+    .map-pin {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      background: rgba(18, 16, 14, 0.9);
+      border: 1px solid var(--gold-main);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 11px;
+      padding: 4px 8px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      z-index: 3;
+    }
+    .map-pin.has-event {
+      border-color: var(--cinnabar-bright);
+      box-shadow: 0 0 10px rgba(196, 54, 56, 0.5);
+    }
+    .pin-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--cinnabar-bright);
+      animation: pulsePin 1.4s infinite;
+    }
+    @keyframes pulsePin { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.4); } 100% { opacity: 1; transform: scale(1); } }
+
+    .map-log-box {
+      background: var(--bg-card);
+      border: 1px solid var(--gold-faint);
+      padding: 10px 12px;
+      font-size: 12.5px;
+      color: var(--text-sub);
+      line-height: 1.6;
+    }
+
+    /* --- 视图 3：诏狱审讯 (#view-prison) --- */
+    .prisoner-card {
+      background: var(--bg-card);
+      border: 1px solid var(--gold-dim);
+      padding: 14px;
+    }
+    .prisoner-header { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+    .prisoner-avatar {
+      width: 68px; height: 68px;
+      border: 1px solid var(--gold-main);
+      object-fit: cover;
+      background: #100e0d;
+      flex-shrink: 0;
+    }
+    .prisoner-avatar.hit { animation: hitFlash 0.35s ease; }
+    @keyframes hitFlash { 0%,100% { filter: none; } 50% { filter: sepia(1) hue-rotate(-50deg) saturate(5); transform: translateX(4px); } }
+
+    .prisoner-name { font-size: 17px; font-weight: bold; color: var(--text-main); letter-spacing: 1.5px; }
+    .prisoner-title { font-size: 12px; color: var(--gold-main); margin-bottom: 4px; }
+    .prisoner-quote { font-size: 12.5px; color: var(--text-sub); font-style: italic; line-height: 1.45; }
+
+    .p-stat-row { margin-bottom: 8px; }
+    .p-stat-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted); margin-bottom: 3px; }
+    .p-bar { height: 6px; background: #2c2824; overflow: hidden; }
+    .p-bar-fill { height: 100%; transition: width 0.3s ease; }
+    .p-bar-fill.defense { background: var(--gold-main); }
+    .p-bar-fill.health { background: var(--cinnabar-bright); }
+    .p-bar-fill.compliance { background: var(--jade); }
+
+    .prison-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .prison-btn {
+      padding: 9px 6px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--gold-dim);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .prison-btn.torture { border-color: var(--cinnabar); background: var(--cinnabar-dim); color: #f5cece; }
+    .prison-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* --- 视图 4：密档袋 (#view-dossier) --- */
+    .dossier-card {
+      background: var(--bg-card);
+      border: 1px solid var(--gold-dim);
+      border-left: 3px solid var(--cinnabar);
+      padding: 12px;
+    }
+    .dossier-top { display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 6px; }
+    .dossier-grade { padding: 1px 6px; border: 1px solid var(--cinnabar); color: #e89b9b; background: var(--cinnabar-dim); }
+    .dossier-title { font-size: 15.5px; font-weight: bold; color: var(--text-main); margin-bottom: 5px; }
+    .dossier-desc { font-size: 12.5px; color: var(--text-sub); line-height: 1.55; margin-bottom: 10px; }
+    .dossier-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    /* ==================== 3. 底部四页签导航 ==================== */
+    .bottom-nav {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: #12100e;
+      border-top: 1px solid var(--gold-dim);
+      z-index: 10;
+    }
+    .nav-tab {
+      position: relative;
+      padding: 12px 0 13px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--gold-faint);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13px;
+      letter-spacing: 2px;
+      cursor: pointer;
+    }
+    .nav-tab:last-child { border-right: none; }
+    .nav-tab.active { color: var(--gold-main); background: rgba(197, 160, 89, 0.06); font-weight: bold; }
+    .nav-tab.active::after {
+      content: ""; position: absolute; bottom: 0; left: 18%; right: 18%;
+      height: 2px; background: var(--cinnabar-bright);
+    }
+    .nav-tab.locked { opacity: 0.3; pointer-events: none; }
+    .nav-badge {
+      position: absolute; top: 5px; right: 10%;
+      min-width: 15px; height: 15px; padding: 0 3px;
+      background: var(--cinnabar); color: #fff;
+      font-size: 10px; line-height: 15px; text-align: center;
+    }
+
+    /* ==================== 4. 通用弹窗（奏折/战报/广告/结局） ==================== */
+    .modal-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(5, 4, 4, 0.86);
+      z-index: 50;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 18px;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal-box {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--gold-main);
+      padding: 18px 16px;
+      position: relative;
+    }
+    .modal-tag {
+      display: inline-block; font-size: 11px; background: var(--cinnabar);
+      color: #f5dede; padding: 2px 8px; letter-spacing: 2px; margin-bottom: 8px;
+    }
+    .modal-title { font-size: 19px; font-weight: bold; color: var(--gold-main); letter-spacing: 2px; margin-bottom: 10px; }
+    .modal-desc { font-size: 14px; line-height: 1.75; color: var(--text-sub); margin-bottom: 16px; }
+
+    .choice-list { display: flex; flex-direction: column; gap: 8px; }
+    .choice-btn {
+      width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--gold-dim);
+      color: var(--text-main); font-family: inherit; padding: 11px 12px;
+      text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px;
+    }
+    .choice-btn:hover { border-color: var(--gold-main); background: rgba(197, 160, 89, 0.08); }
+    .seal-badge {
+      flex-shrink: 0; width: 24px; height: 24px; background: var(--cinnabar);
+      border: 1px solid var(--cinnabar-bright); color: #fff; font-size: 12px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .trump-btn {
+      width: 100%; margin-bottom: 10px; padding: 10px 12px;
+      border: 1px dashed var(--gold-main); background: rgba(197, 160, 89, 0.1);
+      color: var(--gold-main); font-family: inherit; font-size: 13px; cursor: pointer; text-align: left;
+    }
+
+    /* 全局朱砂大印砸屏动效 */
+    .global-stamp {
+      position: absolute; top: 45%; left: 50%;
+      transform: translate(-50%, -50%) scale(2.5) rotate(-12deg);
+      border: 4px solid var(--cinnabar-bright);
+      color: var(--cinnabar-bright);
+      background: rgba(158, 42, 43, 0.15);
+      padding: 8px 18px;
+      font-size: 32px; font-weight: bold; letter-spacing: 6px;
+      pointer-events: none; opacity: 0; z-index: 80;
+    }
+    .global-stamp.slam { animation: stampSlam 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    @keyframes stampSlam {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(2.6) rotate(-15deg); }
+      35% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-8deg); }
+      75% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-8deg); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05) rotate(-8deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell" id="game-shell">
+    <div class="paper-noise"></div>
+    <div class="global-stamp" id="global-stamp">准</div>
+
+    <!-- 0. 开局穿越分镜动画层 -->
+    <div class="intro-overlay" id="intro-overlay">
+      <div class="intro-bg" id="intro-bg"></div>
+      <div class="intro-vignette"></div>
+      <div class="intro-box">
+        <div class="intro-speaker" id="intro-speaker">旁白</div>
+        <div class="intro-text" id="intro-text">点击屏幕，开启穿越之旅……</div>
+      </div>
+      <div class="intro-hint">点击继续 ▸</div>
+    </div>
+
+    <!-- 1. 顶部常驻状态栏 -->
+    <header class="top-bar">
+      <div class="era-row">
+        <span class="era-title" id="era-display">成化十三年 · 孟春</span>
+        <span id="turn-display">第 1 旬</span>
+        <span class="ap-indicator">
+          番子 <span class="ap-dots" id="ap-dots"></span>
+        </span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item" id="box-favor">
+          <div class="stat-label">圣眷</div>
+          <div class="stat-value" id="stat-favor">50</div>
+          <div class="stat-bar-track"><div class="stat-bar-fill" id="bar-favor" style="width:50%"></div></div>
+        </div>
+        <div class="stat-item" id="box-dread">
+          <div class="stat-label">威慑</div>
+          <div class="stat-value" id="stat-dread">20</div>
+          <div class="stat-bar-track"><div class="stat-bar-fill" id="bar-dread" style="width:20%"></div></div>
+        </div>
+        <div class="stat-item" id="box-silver">
+          <div class="stat-label">银两</div>
+          <div class="stat-value" id="stat-silver">500</div>
+          <div class="stat-bar-track"><div class="stat-bar-fill" id="bar-silver" style="width:50%"></div></div>
+        </div>
+        <div class="stat-item" id="box-intel">
+          <div class="stat-label">情报</div>
+          <div class="stat-value" id="stat-intel">10</div>
+          <div class="stat-bar-track"><div class="stat-bar-fill" id="bar-intel" style="width:10%"></div></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 御前 KPI 横幅（第 6 旬解锁显示） -->
+    <div class="kpi-banner" id="kpi-banner">
+      <span id="kpi-text">御前 KPI：第 15 旬前扳倒户部侍郎</span>
+      <span id="kpi-countdown">剩余 9 旬</span>
+    </div>
+
+    <!-- 2. 中间主舞台 -->
+    <main class="stage-container">
+      <!-- 视图 1：大本营 -->
+      <section class="view-panel active" id="view-camp">
+        <div class="camp-hero">
+          <img id="camp-bg-img" src="assets/camp_lv1.jpg" alt="西厂大本营" />
+          <div class="camp-title-overlay">
+            <div>
+              <div class="camp-name" id="camp-level-name">西厂 · 破败空宅 (Lv.1)</div>
+              <div class="camp-sub" id="camp-capacity-text">番子编制：0 / 3 队</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="thought-bubble" id="camp-thought">
+          内心：五百两天使轮融资，连把像样的椅子都没有。先招两个实习生（番子）把架子搭起来吧。
+        </div>
+
+        <!-- 招募番子 -->
+        <div class="action-card">
+          <div>
+            <div class="action-card-title">招募西厂番子</div>
+            <div class="action-card-meta">
+              <span class="action-card-cost">消耗：100 银两</span> · 每旬行动点 +1（附随机词条）
+            </div>
+          </div>
+          <button class="btn-primary" id="btn-recruit" type="button">招募</button>
+        </div>
+
+        <!-- 建筑升级列表（由 JS 动态渲染） -->
+        <div id="building-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+
+        <!-- 结束本旬按钮 -->
+        <button class="btn-end-turn" id="btn-end-turn" type="button">结束本旬 · 批阅奏折</button>
+      </section>
+
+      <!-- 视图 2：京城暗桩沙盘 -->
+      <section class="view-panel" id="view-map">
+        <div class="map-board">
+          <img src="assets/map_capital.jpg" alt="明代京城沙盘" />
+          <div id="map-pins-container"></div>
+        </div>
+        <div class="map-log-box" id="map-dispatch-summary">
+          点击地图上亮起红点的区域派驻番子，旬末统一结算战果。
+        </div>
+      </section>
+
+      <!-- 视图 3：诏狱审讯 -->
+      <section class="view-panel" id="view-prison">
+        <div id="prison-container">
+          <div class="map-log-box">诏狱空无一人。请先在【京城】派驻番子抓捕目标。</div>
+        </div>
+      </section>
+
+      <!-- 视图 4：密档袋 -->
+      <section class="view-panel" id="view-dossier">
+        <div class="era-row" style="margin-bottom:0;">
+          <span>东厂暗阁 · 存证密档</span>
+          <span class="era-title" id="dossier-count">已藏：0 / 3</span>
+        </div>
+        <div id="dossier-list" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="map-log-box">尚无把柄。审讯犯人或暗访朝臣可获取铁证。</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 3. 底部四页签导航 -->
+    <nav class="bottom-nav">
+      <button class="nav-tab active" data-target="view-camp" id="tab-camp" type="button">大本营</button>
+      <button class="nav-tab locked" data-target="view-map" id="tab-map" type="button">
+        京城<span class="nav-badge" id="badge-map" style="display:none">0</span>
+      </button>
+      <button class="nav-tab locked" data-target="view-prison" id="tab-prison" type="button">
+        诏狱<span class="nav-badge" id="badge-prison" style="display:none">0</span>
+      </button>
+      <button class="nav-tab locked" data-target="view-dossier" id="tab-dossier" type="button">密档</button>
+    </nav>
+
+    <!-- 4. 弹窗：御前奏折事件 -->
+    <div class="modal-backdrop" id="modal-event">
+      <div class="modal-box">
+        <span class="modal-tag" id="event-tag">御前奏折</span>
+        <h2 class="modal-title" id="event-title">事件标题</h2>
+        <p class="modal-desc" id="event-desc">事件描述</p>
+        <button class="trump-btn" id="event-trump-btn" style="display:none" type="button"></button>
+        <div class="choice-list" id="event-choices"></div>
+      </div>
+    </div>
+
+    <!-- 5. 弹窗：旬末战报 / 提示 -->
+    <div class="modal-backdrop" id="modal-report">
+      <div class="modal-box">
+        <span class="modal-tag">旬末战报</span>
+        <h2 class="modal-title" id="report-title">番子回禀</h2>
+        <p class="modal-desc" id="report-desc"></p>
+        <button class="btn-primary" id="btn-close-report" style="width:100%" type="button">知道了</button>
+      </div>
+    </div>
+
+    <!-- 6. 弹窗：激励广告模拟 -->
+    <div class="modal-backdrop" id="modal-ad">
+      <div class="modal-box" style="text-align:center;">
+        <span class="modal-tag">激励广告模拟</span>
+        <h2 class="modal-title" id="ad-title">密医紧急赶往诏狱……</h2>
+        <p class="modal-desc" id="ad-countdown">剩余 3 秒即可获得奖励</p>
+      </div>
+    </div>
+
+    <!-- 7. 弹窗：游戏结局 -->
+    <div class="modal-backdrop" id="modal-ending">
+      <div class="modal-box" style="text-align:center;">
+        <span class="modal-tag">尘埃落定</span>
+        <h2 class="modal-title" id="ending-title">结局标题</h2>
+        <p class="modal-desc" id="ending-desc">结局描述</p>
+        <button class="btn-primary" id="btn-restart" style="width:100%" type="button">重开一局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 核心逻辑引擎（由 Codex 编写） -->
+  <script src="js/engine.js"></script>
+</body>
+</html>
