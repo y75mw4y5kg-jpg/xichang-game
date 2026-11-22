@@ -6,7 +6,7 @@
   const clamp = (n, max) => Math.max(0, Math.min(max, n));
   const KEY = "xichang_save_v1";
   const SOUND_KEY = "xichang_sound_v1";
-  let muted = false, audio;
+  let muted = false;
   const gates = {camp: 1, map: 2, prison: 3, dossier: 5};
   const places = [
     ["皇城", 52, 18], ["内阁", 73, 39], ["西市", 22, 61],
@@ -52,29 +52,105 @@
     void el.offsetWidth;
     el.classList.add(cls);
   }
-  // Use a short synthesized impact for the seal, including on devices without audio assets.
-  async function playSealSound() {
+  // Frequencies and short envelopes distinguish wood, metal and low percussion.
+  const sound = (() => {
     const Audio = window.AudioContext || window.webkitAudioContext;
-    if (muted || !Audio || (navigator.userActivation && !navigator.userActivation.hasBeenActive)) return;
-    try {
-      const ctx = audio || (audio = new Audio());
-      if (ctx.state === "suspended") await ctx.resume();
-      if (muted || ctx !== audio || ctx.state !== "running") return;
-      const tone = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const start = ctx.currentTime;
-      tone.frequency.setValueAtTime(145, start);
-      tone.frequency.exponentialRampToValueAtTime(48, start + 0.12);
-      gain.gain.setValueAtTime(0.14, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.14);
-      tone.connect(gain);
-      gain.connect(ctx.destination);
-      tone.start(start);
-      tone.stop(start + 0.15);
-    } catch { /* Audio may be unavailable or blocked by the browser. */ }
-  }
+    let context, pendingCue, actionSound, clickedButton;
+    const voices = {
+      click(tone) {
+        tone("triangle", 930, 570, 0.045, 0.09);
+        tone("sine", 1480, 1070, 0.022, 0.035);
+      },
+      stamp(tone) {
+        tone("sine", 165, 42, 0.24, 0.31);
+        tone("triangle", 275, 75, 0.07, 0.10);
+      },
+      coin(tone) {
+        tone("sine", 1780, 1755, 0.18, 0.08);
+        tone("sine", 2890, 2870, 0.10, 0.04);
+        tone("sine", 2290, 2240, 0.22, 0.07, 0.065);
+      },
+      hit(tone) {
+        tone("sawtooth", 670, 100, 0.035, 0.08);
+        tone("triangle", 185, 68, 0.11, 0.19, 0.018);
+      },
+      heartbeat(tone) {
+        tone("sine", 108, 52, 0.18, 0.26);
+        tone("sine", 92, 48, 0.15, 0.19, 0.23);
+      },
+      alert(tone) {
+        tone("sine", 157, 148, 1.05, 0.20);
+        tone("sine", 239, 232, 0.84, 0.10);
+        tone("triangle", 414, 392, 0.50, 0.045);
+      }
+    };
+
+    function play(name) {
+      if (muted || !Audio) return;
+      if (!context) {
+        // Page entry can precede the first gesture. Keep only the current scene's cue.
+        pendingCue = name;
+        return;
+      }
+      actionSound = true;
+      const ctx = context;
+      const now = ctx.currentTime;
+      voices[name]((wave, from, to, duration, volume, delay = 0) => {
+        const start = now + delay;
+        const end = start + duration;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = wave;
+        osc.frequency.setValueAtTime(from, start);
+        osc.frequency.exponentialRampToValueAtTime(to, end);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(volume, start + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+        osc.start(start);
+        osc.stop(end);
+      });
+    }
+
+    function unlock() {
+      if (muted || !Audio) return;
+      try {
+        const needsContext = !context || context.state === "closed";
+        if (needsContext) context = new Audio();
+        if (needsContext || context.state !== "running") context.resume().catch(() => {});
+        if (pendingCue) {
+          play(pendingCue);
+          pendingCue = null;
+        }
+      } catch { /* The game also runs when browser audio is unavailable. */ }
+    }
+
+    function silence() {
+      pendingCue = null;
+      if (context) context.close().catch(() => {});
+      context = null;
+    }
+
+    function bind() {
+      // touchend covers mobile Safari. Click also covers keyboard-activated buttons.
+      document.addEventListener("touchend", unlock, {capture: true, passive: true});
+      document.addEventListener("click", event => {
+        clickedButton = event.target.closest("button:enabled");
+        actionSound = false;
+        unlock();
+      }, true);
+      document.addEventListener("click", () => {
+        if (!actionSound && clickedButton && clickedButton.id !== "settings-sound") play("click");
+        clickedButton = null;
+      });
+    }
+    return {play, unlock, silence, bind};
+  })();
+
   function stamp(word) {
-    playSealSound();
+    sound.play("stamp");
     $("global-stamp").textContent = word;
     animate($("global-stamp"), "slam");
     animate($("game-shell"), "shake");
@@ -90,12 +166,14 @@
     for (const [key, amount] of Object.entries(changes)) {
       const before = s[key];
       s[key] = clamp(before + amount, key === "silver" ? Infinity : 100);
+      if (key === "silver" && s[key] !== before) sound.play("coin");
       delta($("box-" + key), s[key] - before);
     }
   }
   function finish(word) {
     if (!s.favor || !s.dread || s.ending) {
       s.ending ||= !s.favor ? "圣心已失，午门斩首" : "沦为笑柄，西厂裁撤";
+      if (s.phase !== "ending") sound.play("alert");
       s.phase = "ending";
     }
     try { saveProgress(); }
@@ -170,6 +248,7 @@
     if (s.broke >= 2) s.ending = "饷银断绝，番役兵变";
     if (s.favor && s.dread && !s.ending) {
       s.turn++;
+      if (s.turn === 6 || s.turn === 15) sound.play("alert");
       s.ap = maxAp();
       s.jobs = makeJobs();
       s.note = "";
@@ -267,6 +346,7 @@
     p.last = s.turn;
     s.questioned = true;
     if (method === "torture") {
+      sound.play("hit");
       p.defense -= 35;
       p.health -= s.crew.includes("刑讯老手") ? 25 : 35;
       p.quote = source.torture_quote;
@@ -498,6 +578,7 @@
 
   function showFrame() {
     const f = intro[s.frame];
+    if (f.sfx === "heartbeat") sound.play("heartbeat");
     const bg = intro.slice(0, s.frame + 1).filter(frame => frame.bg).pop();
     $("intro-bg").style.backgroundImage = bg ? "url(" + bg.bg + ")" : "none";
     $("intro-bg").classList.toggle("visible", Boolean(bg));
@@ -565,6 +646,7 @@
     view = s.turn >= gates[s.view] ? s.view : s.phase === "rescue" ? "prison" : "camp";
     render();
     if (s.phase === "intro") showFrame();
+    if (s.phase === "ending" || s.phase === "event") sound.play("alert");
   }
 
   function soundLabel() {
@@ -596,11 +678,11 @@
     };
     $("settings-sound").onclick = () => {
       muted = !muted;
-      if (muted && audio) {
-        audio.close().catch(() => {});
-        audio = null;
+      if (muted) sound.silence();
+      else {
+        sound.unlock();
+        sound.play("click");
       }
-      if (!muted) playSealSound();
       soundLabel();
       try {
         localStorage.setItem(SOUND_KEY, muted ? "muted" : "on");
@@ -642,6 +724,9 @@
   }
 
   async function boot() {
+    try { muted = localStorage.getItem(SOUND_KEY) === "muted"; }
+    catch { /* Sound preferences are optional when storage is unavailable. */ }
+    sound.bind();
     $("intro-text").textContent = "正在读取开场卷宗……";
     $("intro-overlay").onclick = () => {
       if (s && s.phase === "intro") advanceFrame();
@@ -653,8 +738,6 @@
     evidence = Object.fromEntries(prisoners.filter(p => p.unlocks_dossier)
       .map(p => [p.unlocks_dossier.id, p.unlocks_dossier]));
     let initial = fresh();
-    try { muted = localStorage.getItem(SOUND_KEY) === "muted"; }
-    catch { /* Sound preferences are optional when storage is unavailable. */ }
     try { initial = readProgress() || initial; }
     catch { storageWarning = "未能读取存档，已从开局开始。"; }
     bindSettings();
@@ -670,6 +753,7 @@
       if (s.phase !== "report") return;
       if (!s.event) return nextTurn();
       s.phase = "event";
+      sound.play("alert");
       finish();
     };
     $("btn-restart").onclick = () => settingsMenu(true);
