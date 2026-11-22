@@ -471,38 +471,41 @@
     }
   }
 
-  let frameTimer;
   function showFrame() {
-    clearTimeout(frameTimer);
     const f = intro[s.frame];
     const bg = intro.slice(0, s.frame + 1).filter(frame => frame.bg).pop();
     $("intro-bg").style.backgroundImage = bg ? "url(" + bg.bg + ")" : "none";
     $("intro-bg").classList.toggle("visible", Boolean(bg));
-    $("intro-bg").classList.toggle("zoom-in", Boolean(bg && bg.camera === "slow_zoom_in"));
+    if (f.bg && f.camera === "slow_zoom_in") animate($("intro-bg"), "zoom-in");
+    else $("intro-bg").classList.toggle("zoom-in", Boolean(bg && bg.camera === "slow_zoom_in"));
+    document.querySelector(".intro-hint").hidden = f.scene === "stamp_decree";
     $("intro-speaker").textContent = f.speaker || "";
     $("intro-text").textContent = f.text || "";
     $("intro-text").className = "intro-text " + (f.style || "");
     if (f.scene === "palace_shake") animate($("game-shell"), "shake");
-    if (f.stamp_text) {
-      // Keep the global seal visible above the opaque storyboard for the decree.
-      $("global-stamp").style.zIndex = "101";
+    if (f.scene === "stamp_decree") {
+      const seal = $("global-stamp");
+      seal.style.zIndex = "101";
+      seal.addEventListener("animationend", enterCamp);
       stamp(f.stamp_text);
     }
-    frameTimer = setTimeout(advanceFrame, f.stamp_text ? 750 : 5000);
   }
+
+  function enterCamp(event) {
+    if (event.animationName !== "stampSlam") return;
+    const seal = event.currentTarget;
+    seal.removeEventListener("animationend", enterCamp);
+    seal.style.removeProperty("z-index");
+    s.phase = "play";
+    finish();
+    $("btn-recruit").focus({focusVisible: true});
+  }
+
   function advanceFrame() {
-    if (s.phase !== "intro") return;
-    clearTimeout(frameTimer);
-    if (s.frame + 1 < intro.length) {
-      s.frame++;
-      finish();
-      showFrame();
-    } else {
-      $("global-stamp").style.removeProperty("z-index");
-      s.phase = "play";
-      finish();
-      $("btn-recruit").focus({focusVisible: true});
-    }
+    if (s.phase !== "intro" || s.frame >= intro.length - 1) return;
+    s.frame++;
+    finish();
+    showFrame();
   }
 
   async function load(name) {
@@ -564,7 +567,6 @@
     try {
       await boot();
     } catch (err) {
-      clearTimeout(frameTimer);
       $("intro-overlay").classList.remove("hidden");
       $("intro-speaker").textContent = "游戏初始化失败";
       $("intro-text").textContent = err.message || String(err);

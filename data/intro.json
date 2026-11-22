@@ -1,7 +1,9 @@
 [
   {
     "id": "intro_1",
-    "scene": "black",
+    "scene": "modern_office",
+    "bg": "./assets/bg_modern_office.jpg",
+    "camera": "slow_zoom_in",
     "sfx": "heartbeat",
     "speaker": "旁白",
     "style": "modern_thought",
