@@ -289,7 +289,7 @@
   }
 
   function renderCamp() {
-    $("camp-bg-img").setAttribute("src", "assets/camp_lv" + Math.min(2, s.hall) + ".jpg");
+    $("camp-bg-img").setAttribute("src", "./assets/camp_lv" + Math.min(2, s.hall) + ".jpg");
     $("camp-level-name").textContent = "西厂 · " + ["破败空宅", "肃杀厂署", "权倾朝野"][s.hall - 1] + " (Lv." + s.hall + ")";
     $("camp-capacity-text").textContent = "番子编制：" + maxAp() + " / " + capacity() + " 队";
     const hints = ["先招募一队番子，领两点行动力开张。", "去京城西市缉拿私盐商，再回营结旬。",
@@ -505,11 +505,23 @@
     }
   }
 
+  async function load(name) {
+    const path = "./data/" + name + ".json";
+    try {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const rows = await response.json();
+      if (!Array.isArray(rows) || !rows.length) throw new Error("卷宗须为非空数组");
+      return rows;
+    } catch (err) {
+      throw new Error(path + " — " + err.message);
+    }
+  }
+
   async function boot() {
-    const load = async name => {
-      const r = await fetch("data/" + name + ".json");
-      if (!r.ok) throw Error(name + " (" + r.status + ")");
-      return r.json();
+    $("intro-text").textContent = "正在读取开场卷宗……";
+    $("intro-overlay").onclick = () => {
+      if (s && s.phase === "intro") advanceFrame();
     };
     const [frames, edicts, prisoners] = await Promise.all(["intro", "events", "prisoners"].map(load));
     intro = frames;
@@ -529,7 +541,6 @@
       render();
       document.querySelector(".stage-container").scrollTop = 0;
     };
-    $("intro-overlay").onclick = advanceFrame;
     $("btn-recruit").onclick = recruit;
     $("btn-end-turn").onclick = endTurn;
     $("btn-close-report").onclick = () => {
@@ -549,10 +560,17 @@
     render();
     if (s.phase === "intro") showFrame();
   }
-  boot().catch(err => {
-    $("intro-overlay").classList.remove("hidden");
-    $("intro-speaker").textContent = "卷宗读取失败";
-    $("intro-text").textContent = "请通过 HTTP 打开游戏，点击重试。" + err.message;
-    $("intro-overlay").onclick = () => location.reload();
-  });
+  async function start() {
+    try {
+      await boot();
+    } catch (err) {
+      clearTimeout(frameTimer);
+      $("intro-overlay").classList.remove("hidden");
+      $("intro-speaker").textContent = "游戏初始化失败";
+      $("intro-text").textContent = err.message || String(err);
+      document.querySelector(".intro-hint").textContent = "点击重新加载 ▸";
+      $("intro-overlay").onclick = () => location.reload();
+    }
+  }
+  start();
 })();

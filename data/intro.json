@@ -10,7 +10,7 @@
   {
     "id": "intro_2",
     "scene": "flash_to_palace",
-    "bg": "assets/bg_emperor.jpg",
+    "bg": "./assets/bg_emperor.jpg",
     "camera": "slow_zoom_in",
     "speaker": "成化帝（屏风后）",
     "style": "ancient_dialogue",

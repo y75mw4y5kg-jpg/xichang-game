@@ -551,7 +551,7 @@
       <!-- 视图 1：大本营 -->
       <section class="view-panel active" id="view-camp">
         <div class="camp-hero">
-          <img id="camp-bg-img" src="assets/camp_lv1.jpg" alt="西厂大本营" />
+          <img id="camp-bg-img" src="./assets/camp_lv1.jpg" alt="西厂大本营" />
           <div class="camp-title-overlay">
             <div>
               <div class="camp-name" id="camp-level-name">西厂 · 破败空宅 (Lv.1)</div>
@@ -585,7 +585,7 @@
       <!-- 视图 2：京城暗桩沙盘 -->
       <section class="view-panel" id="view-map">
         <div class="map-board">
-          <img src="assets/map_capital.jpg" alt="明代京城沙盘" />
+          <img src="./assets/map_capital.jpg" alt="明代京城沙盘" />
           <div id="map-pins-container"></div>
         </div>
         <div class="map-log-box" id="map-dispatch-summary">
@@ -666,6 +666,6 @@
   </div>
 
   <!-- 核心逻辑引擎（由 Codex 编写） -->
-  <script src="js/engine.js"></script>
+  <script src="./js/engine.js" onerror="document.getElementById('intro-text').textContent = '无法加载 ./js/engine.js，请刷新重试。'"></script>
 </body>
 </html>
