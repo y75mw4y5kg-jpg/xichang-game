@@ -5,6 +5,8 @@
   const pick = items => items[Math.floor(Math.random() * items.length)];
   const clamp = (n, max) => Math.max(0, Math.min(max, n));
   const KEY = "xichang_save_v1";
+  const SOUND_KEY = "xichang_sound_v1";
+  let muted = false, audio;
   const gates = {camp: 1, map: 2, prison: 3, dossier: 5};
   const places = [
     ["皇城", 52, 18], ["内阁", 73, 39], ["西市", 22, 61],
@@ -50,7 +52,29 @@
     void el.offsetWidth;
     el.classList.add(cls);
   }
+  // Use a short synthesized impact for the seal, including on devices without audio assets.
+  async function playSealSound() {
+    const Audio = window.AudioContext || window.webkitAudioContext;
+    if (muted || !Audio || (navigator.userActivation && !navigator.userActivation.hasBeenActive)) return;
+    try {
+      const ctx = audio || (audio = new Audio());
+      if (ctx.state === "suspended") await ctx.resume();
+      if (muted || ctx !== audio || ctx.state !== "running") return;
+      const tone = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = ctx.currentTime;
+      tone.frequency.setValueAtTime(145, start);
+      tone.frequency.exponentialRampToValueAtTime(48, start + 0.12);
+      gain.gain.setValueAtTime(0.14, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.14);
+      tone.connect(gain);
+      gain.connect(ctx.destination);
+      tone.start(start);
+      tone.stop(start + 0.15);
+    } catch { /* Audio may be unavailable or blocked by the browser. */ }
+  }
   function stamp(word) {
+    playSealSound();
     $("global-stamp").textContent = word;
     animate($("global-stamp"), "slam");
     animate($("game-shell"), "shake");
@@ -74,7 +98,7 @@
       s.ending ||= !s.favor ? "圣心已失，午门斩首" : "沦为笑柄，西厂裁撤";
       s.phase = "ending";
     }
-    try { localStorage.setItem(KEY, JSON.stringify(s)); }
+    try { saveProgress(); }
     catch { storageWarning = "浏览器存储不可用，本局进度只能保留到关闭页面。"; }
     render();
     if (word) stamp(word);
@@ -156,6 +180,7 @@
   }
 
   function modal(id) {
+    $("btn-settings").disabled = Boolean(id) || s.phase !== "play";
     for (const el of document.querySelectorAll(".modal-backdrop"))
       el.classList.toggle("open", el.id === id);
     $("game-shell").querySelector(".stage-container").inert = Boolean(id) || s.phase === "intro";
@@ -521,6 +546,101 @@
     }
   }
 
+  function saveProgress() {
+    localStorage.setItem(KEY, JSON.stringify({...s, view}));
+    storageWarning = "";
+  }
+
+  function readProgress() {
+    const raw = localStorage.getItem(KEY);
+    if (raw === null) return null;
+    const saved = JSON.parse(raw);
+    if (!saved || !Number.isInteger(saved.turn) || !Array.isArray(saved.inmates))
+      throw new Error("存档格式有误");
+    return {...fresh(), ...saved};
+  }
+
+  function displayProgress(progress) {
+    s = progress;
+    view = s.turn >= gates[s.view] ? s.view : s.phase === "rescue" ? "prison" : "camp";
+    render();
+    if (s.phase === "intro") showFrame();
+  }
+
+  function soundLabel() {
+    $("settings-sound").textContent = muted ? "音效 · 静音" : "音效 · 开启";
+    $("settings-sound").setAttribute("aria-pressed", String(!muted));
+  }
+
+  function settingsMenu(confirmRestart = false) {
+    $("settings-menu").hidden = confirmRestart;
+    $("settings-confirm").hidden = !confirmRestart;
+    $("settings-status").textContent = confirmRestart ? "清空当前存档，从穿越分镜重新开始？" : "";
+    soundLabel();
+    modal("modal-settings");
+    $(confirmRestart ? "settings-cancel" : "settings-sound").focus();
+  }
+
+  function closeSettings() {
+    render();
+    $(s.phase === "ending" ? "btn-restart" : "btn-settings").focus();
+  }
+
+  function bindSettings() {
+    $("btn-settings").onclick = () => settingsMenu();
+    $("settings-return").onclick = closeSettings;
+    $("settings-restart").onclick = () => settingsMenu(true);
+    $("settings-cancel").onclick = () => s.phase === "ending" ? closeSettings() : settingsMenu();
+    $("modal-settings").onkeydown = event => {
+      if (event.key === "Escape") closeSettings();
+    };
+    $("settings-sound").onclick = () => {
+      muted = !muted;
+      if (muted && audio) {
+        audio.close().catch(() => {});
+        audio = null;
+      }
+      if (!muted) playSealSound();
+      soundLabel();
+      try {
+        localStorage.setItem(SOUND_KEY, muted ? "muted" : "on");
+        $("settings-status").textContent = "";
+      } catch { $("settings-status").textContent = "音效已切换，浏览器无法保存偏好。"; }
+    };
+    $("settings-save").onclick = () => {
+      try {
+        saveProgress();
+        $("settings-status").textContent = "已存档";
+      } catch { $("settings-status").textContent = "存档失败，请检查浏览器存储空间和权限。"; }
+    };
+    $("settings-load").onclick = () => {
+      const previous = s;
+      const previousView = view;
+      try {
+        const saved = readProgress();
+        if (!saved) {
+          $("settings-status").textContent = "暂无存档";
+          return;
+        }
+        displayProgress(saved);
+      } catch {
+        s = previous;
+        view = previousView;
+        render();
+        settingsMenu();
+        $("settings-status").textContent = "读取失败，请检查存档或浏览器存储权限。";
+      }
+    };
+    $("settings-reset").onclick = () => {
+      try { localStorage.removeItem(KEY); }
+      catch {
+        $("settings-status").textContent = "无法清空存档，请检查浏览器存储权限。";
+        return;
+      }
+      displayProgress(fresh());
+    };
+  }
+
   async function boot() {
     $("intro-text").textContent = "正在读取开场卷宗……";
     $("intro-overlay").onclick = () => {
@@ -532,12 +652,12 @@
     people = Object.fromEntries(prisoners.map(p => [p.id, p]));
     evidence = Object.fromEntries(prisoners.filter(p => p.unlocks_dossier)
       .map(p => [p.unlocks_dossier.id, p.unlocks_dossier]));
-    s = fresh();
-    try {
-      const save = JSON.parse(localStorage.getItem(KEY));
-      if (save && Number.isInteger(save.turn) && Array.isArray(save.inmates)) s = {...s, ...save};
-    } catch { storageWarning = "未能读取存档，已从开局开始。"; }
-    view = s.phase === "rescue" ? "prison" : "camp";
+    let initial = fresh();
+    try { muted = localStorage.getItem(SOUND_KEY) === "muted"; }
+    catch { /* Sound preferences are optional when storage is unavailable. */ }
+    try { initial = readProgress() || initial; }
+    catch { storageWarning = "未能读取存档，已从开局开始。"; }
+    bindSettings();
     for (const key of Object.keys(gates)) $("tab-" + key).onclick = () => {
       if (s.phase !== "play" || s.turn < gates[key]) return;
       view = key;
@@ -552,16 +672,8 @@
       s.phase = "event";
       finish();
     };
-    $("btn-restart").onclick = () => {
-      if (s.phase !== "ending") return;
-      try { localStorage.removeItem(KEY); } catch { /* Storage may be unavailable. */ }
-      s = fresh();
-      view = "camp";
-      render();
-      showFrame();
-    };
-    render();
-    if (s.phase === "intro") showFrame();
+    $("btn-restart").onclick = () => settingsMenu(true);
+    displayProgress(initial);
   }
   async function start() {
     try {
