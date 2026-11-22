@@ -5,40 +5,41 @@
     "bg": "./assets/bg_modern_office.jpg",
     "camera": "slow_zoom_in",
     "sfx": "heartbeat",
-    "speaker": "旁白",
+    "speaker": "你",
     "style": "modern_thought",
-    "text": "凌晨三点，改完第 18 版 PPT，眼前一黑……"
+    "text": "凌晨三点，第十八版 PPT 刚发出去，群里又跳出一句“再想想”。我想回个好，手指却再也没抬起来。"
   },
   {
     "id": "intro_2",
     "scene": "flash_to_palace",
     "bg": "./assets/bg_emperor.jpg",
     "camera": "slow_zoom_in",
-    "speaker": "成化帝（屏风后）",
+    "speaker": "旁白",
     "style": "ancient_dialogue",
-    "text": "东厂办案太慢，锦衣卫又与外臣勾连。"
+    "text": "成化十三年。你在一张陌生面孔的记忆里，看见昨日的御前：一个替皇帝捧砚的小内侍，被破格提为西厂提督。"
   },
   {
     "id": "intro_3",
     "scene": "palace",
-    "speaker": "成化帝（屏风后）",
+    "speaker": "成化帝",
     "style": "ancient_dialogue",
-    "text": "朕特设西厂，由你提督。赐银五百两，三月内，朕要京城鸦雀无声。"
+    "text": "赐银五百两，命你自择番役，筹建西厂。朕要知道，京城那些账，究竟坏在哪一笔。"
   },
   {
     "id": "intro_4",
     "scene": "palace_shake",
     "sfx": "record_scratch",
-    "speaker": "你（内心）",
+    "speaker": "你",
     "style": "modern_thought",
-    "text": "等等……大明？西厂？我这是直接空降成厂长了？"
+    "text": "记忆断在值房里。那小内侍连熬数夜筹建西厂，伏案猝死。我也死在了工位上，如今却借他的身体睁开了眼。",
+    "bg": "./assets/camp_lv1.jpg"
   },
   {
     "id": "intro_5",
     "scene": "palace",
-    "speaker": "你（内心）",
-    "style": "modern_thought",
-    "text": "五百两天使轮融资，三月 KPI 不达标就砍头……这老板比我前司还黑。"
+    "speaker": "陈公公",
+    "style": "ancient_dialogue",
+    "text": "提督醒了？杂家姓陈，奉旨给你做监军。招人的名册搁在左手，回禀的折子搁在右手。先把这颗印接稳了。"
   },
   {
     "id": "intro_6",

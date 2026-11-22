@@ -57,5 +57,155 @@
         "effects": { "silver": -100, "favor": 5 }
       }
     ]
+  },
+  {
+    "id": "ev_relay",
+    "tag": "驿传",
+    "title": "空鞍领马料",
+    "desc": "驿丞呈来的料单写着三十匹。陈公公掀开马厩的帘子，里面只有十二副鞍。",
+    "trump_dossier_id": null,
+    "choices": [
+      {
+        "seal": "核",
+        "text": "照蹄印重核支领",
+        "effects": {
+          "intel": 8,
+          "silver": 45
+        }
+      },
+      {
+        "seal": "补",
+        "text": "先垫料银，保住急递",
+        "effects": {
+          "silver": -45,
+          "favor": 8
+        }
+      }
+    ]
+  },
+  {
+    "id": "ev_granary",
+    "tag": "仓场",
+    "title": "雨夜开仓",
+    "desc": "通州仓门外排着湿透的粮船。仓吏怕坏了点验旧例，硬是不肯卸粮。",
+    "trump_dossier_id": null,
+    "choices": [
+      {
+        "seal": "开",
+        "text": "具名开仓，保下漕粮",
+        "effects": {
+          "favor": 9,
+          "dread": -3
+        }
+      },
+      {
+        "seal": "验",
+        "text": "买油掌灯，逐船验斛",
+        "effects": {
+          "silver": -35,
+          "intel": 12
+        }
+      }
+    ]
+  },
+  {
+    "id": "ev_press",
+    "tag": "邸报",
+    "title": "一字两本",
+    "desc": "两张邸报同日入京，一张写“免征”，一张写“缓征”。刻工说，两块版都是上头送来的。",
+    "trump_dossier_id": null,
+    "choices": [
+      {
+        "seal": "封",
+        "text": "封存刻版，请御前裁定",
+        "effects": {
+          "favor": 6,
+          "dread": 4
+        }
+      },
+      {
+        "seal": "访",
+        "text": "循纸号问访书坊",
+        "effects": {
+          "silver": -25,
+          "intel": 12
+        }
+      }
+    ]
+  },
+  {
+    "id": "ev_roll",
+    "tag": "京营",
+    "title": "点卯有名无人",
+    "desc": "京营点卯，一声应诺从三列人身后传来。掌册官已把满员的红签递到你手边。",
+    "trump_dossier_id": null,
+    "choices": [
+      {
+        "seal": "点",
+        "text": "揭下红签，重新唱名",
+        "effects": {
+          "dread": 9,
+          "favor": -3
+        }
+      },
+      {
+        "seal": "留",
+        "text": "收下名册，悄查饷票",
+        "effects": {
+          "intel": 9,
+          "dread": -2
+        }
+      }
+    ]
+  },
+  {
+    "id": "ev_kiln",
+    "tag": "工部",
+    "title": "御砖裂纹",
+    "desc": "工部交来一批御砖，雨一淋，砖上全浮出细纹。监造催你在验收册上落款。",
+    "trump_dossier_id": null,
+    "choices": [
+      {
+        "seal": "退",
+        "text": "退砖重烧，具折说明",
+        "effects": {
+          "favor": 7,
+          "dread": 3
+        }
+      },
+      {
+        "seal": "垫",
+        "text": "垫银调换合格旧料",
+        "effects": {
+          "silver": -40,
+          "favor": 10
+        }
+      }
+    ]
+  },
+  {
+    "id": "ev_exam",
+    "tag": "礼部",
+    "title": "弥封之外",
+    "desc": "会试誊录官交来的废纸上，连着三份卷子都在同一处缺了一笔。主考明早便要揭榜。",
+    "trump_dossier_id": null,
+    "choices": [
+      {
+        "seal": "覆",
+        "text": "请礼部连夜覆校",
+        "effects": {
+          "silver": -30,
+          "favor": 8
+        }
+      },
+      {
+        "seal": "查",
+        "text": "留下废纸，核对经手名册",
+        "effects": {
+          "intel": 10,
+          "dread": -2
+        }
+      }
+    ]
   }
 ]

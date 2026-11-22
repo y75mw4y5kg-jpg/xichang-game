@@ -7,9 +7,6 @@
     "defense": 100,
     "health": 100,
     "compliance": 0,
-    "intro_quote": "厂公饶命！小的只是倒腾点私盐，上面有人罩着啊！",
-    "torture_quote": "啊——别打了！我说，是户部主事收了我的孝敬！",
-    "bribe_quote": "厂公好酒好菜待我……小的愿做西厂在西市的耳目。",
     "loot_silver": 220,
     "unlocks_dossier": {
       "id": "d_hubu_clerk",
@@ -18,7 +15,12 @@
       "target": "户部主事",
       "desc": "详录户部主事私吞盐税的铁证。审破钱万贯防线后，可赴京城缉拿周文礼。"
     },
-    "next_target_id": "p_hubu_clerk"
+    "next_target_id": "p_hubu_clerk",
+    "testimony": {
+      "defiant": "盐袋上盖着引印。厂公若说是私盐，先请盐课司认印。",
+      "wavering": "引是真的……可那批盐走西市时，没人敢过秤。",
+      "broken": "钱是我送的！户部主事周文礼亲手签收，花押就在分赃账上。"
+    }
   },
   {
     "id": "p_hubu_clerk",
@@ -28,9 +30,6 @@
     "defense": 120,
     "health": 90,
     "compliance": 0,
-    "intro_quote": "本官乃朝廷命官，你们西厂凭什么私设公堂？",
-    "torture_quote": "别上夹棍！账本在侍郎大人府上，我只是个跑腿的！",
-    "bribe_quote": "厂公若能保我性命，户部的一举一动我皆密报于您。",
     "loot_silver": 350,
     "unlocks_dossier": {
       "id": "d_hubu_minister",
@@ -39,7 +38,12 @@
       "target": "户部侍郎",
       "desc": "抄查周文礼府邸所得。缉拿户部侍郎后，可直接御前弹劾，完成首份御前 KPI。"
     },
-    "next_target_id": "p_hubu_minister"
+    "next_target_id": "p_hubu_minister",
+    "testimony": {
+      "defiant": "户部日清月结，下官交得出每一册账。",
+      "wavering": "您看的这册是给巡仓官的。另有一本，我只替人誊过。",
+      "broken": "军饷密账在我府里！封皮内有侍郎私印，抄出来便知是谁拿了银。"
+    }
   },
   {
     "id": "p_hubu_minister",
@@ -49,10 +53,12 @@
     "defense": 150,
     "health": 100,
     "compliance": 0,
-    "intro_quote": "竖子安敢辱我！明日早朝，内阁诸公必参你一本！",
-    "torture_quote": "咳血……西厂狠毒，老夫认栽……",
-    "bribe_quote": "老夫愿奉上万两白银，只求厂公高抬贵手。",
     "loot_silver": 800,
-    "is_kpi_target": true
+    "is_kpi_target": true,
+    "testimony": {
+      "defiant": "本官的关防在部里。市井传言也能当凭据么？",
+      "wavering": "军需急拨，确有几笔未入正册。是谁签押，要容我细想。",
+      "broken": "那枚押是我画的。军饷转入私库，也是我的令。我愿具结。"
+    }
   }
 ]

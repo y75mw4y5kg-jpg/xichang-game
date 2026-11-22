@@ -6,7 +6,8 @@
   const clamp = (n, max) => Math.max(0, Math.min(max, n));
   const KEY = "xichang_save_v1";
   const SOUND_KEY = "xichang_sound_v1";
-  let muted = false;
+  const MUSIC_KEY = "xichang_music_v1";
+  let muted = false, musicEnabled = true;
   const gates = {camp: 1, map: 2, prison: 3, dossier: 5};
   const places = [
     ["皇城", 52, 18], ["内阁", 73, 39], ["西市", 22, 61],
@@ -34,7 +35,7 @@
       turn: 1, phase: "intro", frame: 0, favor: 50, dread: 20, silver: 500, intel: 10,
       ap: 0, crew: [], hall: 1, jail: 1, archive: 1, jobs: [], inmates: [], cards: [],
       leads: [], captured: [], defeated: [], spies: 0, broke: 0, questioned: false,
-      report: "", event: null, ending: "", note: ""
+      report: "", event: null, recentEvents: [], ending: "", note: ""
     };
   }
 
@@ -153,6 +154,97 @@
     return {play, unlock, silence, bind};
   })();
 
+  const music = (() => {
+    const scale = [110, 123.47, 138.59, 164.81, 185]; // A, B, C#, E, F#
+    let ctx, output, drone, recording, timer, activated = false;
+
+    function pluck() {
+      const now = ctx.currentTime;
+      const hz = pick(scale);
+      for (const [partial, amplitude] of [[1, 0.16], [2, 0.055], [3, 0.025]]) {
+        const osc = ctx.createOscillator();
+        const envelope = ctx.createGain();
+        osc.frequency.value = hz * partial;
+        envelope.gain.setValueAtTime(0.0001, now);
+        envelope.gain.exponentialRampToValueAtTime(amplitude, now + 0.018);
+        const end = now + 2.2 / Math.sqrt(partial);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+        osc.connect(envelope).connect(output);
+        osc.onended = () => { osc.disconnect(); envelope.disconnect(); };
+        osc.start(now);
+        osc.stop(end);
+      }
+    }
+
+    function schedule() {
+      clearTimeout(timer);
+      timer = null;
+      if (!musicEnabled || document.hidden || recording || ctx.state !== "running") return;
+      timer = setTimeout(() => {
+        pluck();
+        schedule();
+      }, 2000 + Math.random() * 2000);
+    }
+
+    async function loadRecording() {
+      try {
+        const response = await fetch("./assets/bgm.mp3");
+        if (!response.ok) return;
+        const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
+        recording = ctx.createBufferSource();
+        recording.buffer = buffer;
+        recording.loop = true;
+        const level = ctx.createGain();
+        level.gain.value = 0.19;
+        recording.connect(level).connect(output);
+        recording.start();
+        drone.stop();
+        schedule();
+      } catch { /* The synthesized score continues if the optional file cannot be decoded. */ }
+    }
+
+    function sync() {
+      const active = activated && musicEnabled && !document.hidden;
+      if (!active) {
+        clearTimeout(timer);
+        timer = null;
+        if (ctx) ctx.suspend().catch(() => {});
+        return;
+      }
+      try {
+        if (!ctx) {
+          const Audio = window.AudioContext || window.webkitAudioContext;
+          if (!Audio) return;
+          ctx = new Audio();
+          output = ctx.createGain();
+          output.gain.value = 0.30;
+          output.connect(ctx.destination);
+          drone = ctx.createOscillator();
+          const bed = ctx.createGain();
+          bed.gain.setValueAtTime(0, ctx.currentTime);
+          bed.gain.linearRampToValueAtTime(0.055, ctx.currentTime + 1.4);
+          drone.frequency.value = 55;
+          drone.connect(bed).connect(output);
+          drone.start();
+          ctx.onstatechange = schedule;
+          loadRecording();
+        }
+        ctx.resume().then(() => { if (!timer) schedule(); }).catch(() => {});
+      } catch { /* Audio support is optional. */ }
+    }
+
+    function bind() {
+      const gesture = () => {
+        activated = true;
+        if (!ctx || ctx.state !== "running") sync();
+      };
+      document.addEventListener("touchend", gesture, {capture: true, passive: true});
+      document.addEventListener("click", gesture, true);
+      document.addEventListener("visibilitychange", sync);
+    }
+    return {bind, sync};
+  })();
+
   function stamp(word) {
     sound.play("stamp");
     $("global-stamp").textContent = word;
@@ -224,9 +316,10 @@
   }
 
   function jobName(job) {
-    return job.target ? "缉拿" + (job.target === minister ? "户部侍郎" :
+    const kind = job.assignment || job.kind;
+    return kind === "capture" ? "缉拿" + (job.target === minister ? "户部侍郎" :
       people[job.target].title + people[job.target].name) :
-      {silver: "查缉走私", intel: "探听密会", card: "搜查暗账"}[job.kind];
+      {silver: "查缉走私", intel: "探听密会", card: "搜查暗账"}[kind];
   }
   function storeCard(id) {
     const title = evidence[id].title;
@@ -242,17 +335,18 @@
     return "缴获" + title + "。";
   }
   function settle(job) {
-    if (job.kind === "capture") {
+    const kind = job.assignment || job.kind;
+    if (kind === "capture") {
       const p = people[job.target];
       if (s.inmates.some(inmate => inmate.id === p.id)) return p.name + "已在押。";
       if (s.inmates.length >= jailCap()) return "牢房已满，目标暂缓收押。";
       s.inmates.push({id: p.id, defense: p.defense, health: p.health,
-        compliance: p.compliance, last: 0, quote: p.intro_quote});
+        compliance: p.compliance, last: 0});
       if (!s.captured.includes(p.id)) s.captured.push(p.id);
       return p.name + "已收押诏狱。";
     }
-    if (job.kind === "card") return storeCard("d_hubu_clerk");
-    if (job.kind === "silver") {
+    if (kind === "card") return storeCard("d_hubu_clerk");
+    if (kind === "silver") {
       const amount = pick([50, 70, 90]);
       effect({silver: amount});
       return "截获赃银 " + amount + " 两。";
@@ -274,7 +368,12 @@
       lines.push("朝中暗桩送回情报。");
     }
     s.report = lines.join(" ") || "本旬无外派差事。";
-    s.event = s.turn >= 4 ? pick(events).id : null;
+    s.event = null;
+    if (s.turn >= 4) {
+      const eligible = events.filter(event => !s.recentEvents.includes(event.id));
+      s.event = pick(eligible.length ? eligible : events).id;
+      s.recentEvents = [...s.recentEvents, s.event].slice(-3);
+    }
     s.phase = "report";
     finish("封卷");
   }
@@ -377,13 +476,55 @@
       ["退", "返回", render]
     ]);
   }
-  function dispatch(j) {
-    if (j.sent || !s.ap || s.phase !== "play") return;
-    if (s.silver < fee()) return shortFunds();
-    effect({silver: -fee()});
-    j.sent = true;
-    s.ap--;
-    finish("派驻");
+  const locationDescriptions = [
+    "宫漏三响，值门内侍提灯换班。廊下的靴印一直通到封着火漆的匣子前。",
+    "票拟的墨迹尚湿，帘后传出卷宗合拢的轻响。书吏独独漏收了一张字条。",
+    "鱼鳞般的棚顶挤在雨里。卖盐的收了幌子，秤盘底下还粘着一粒白霜。",
+    "暮鼓催着关城。车轴碾过湿泥，守卒把最后一张路引翻来覆去地看。",
+    "卫所石阶被靴底磨亮。檐下的缇骑都盯着案上的腰牌，谁也不先开口。"
+  ];
+
+  function openLocation(place) {
+    const job = s.jobs.find(j => j.place === place);
+    const name = places[place][0];
+    const tutorial = s.turn === 2;
+    const full = s.inmates.length >= jailCap();
+    $("location-name").textContent = name;
+    $("location-desc").textContent = locationDescriptions[place];
+    $("location-status").textContent = job && job.sent ? "番子潜伏中，正在" + jobName(job) + "，旬末回禀。" :
+      [job ? "线报：" + jobName(job) : "此处尚无线报，可自行探查。",
+        tutorial ? "初差须赴西市布控缉拿钱万贯。" : "",
+        !s.ap ? "本旬行动点已用尽。" : "",
+        job && job.target && full ? "诏狱已满，请先腾出牢房。" : ""].filter(Boolean).join(" ");
+    const actions = $("location-actions");
+    actions.replaceChildren();
+    function option(label, kind, reward, locked = false) {
+      const capture = kind === "capture";
+      const disabled = Boolean(job && job.sent) || !s.ap || locked || (tutorial && !capture);
+      const action = button(label, () => {
+        if (disabled || s.phase !== "play" || !s.ap || (job && job.sent)) return;
+        if (s.silver < fee()) return shortFunds();
+        const order = job || {place, kind};
+        if (!job) s.jobs.push(order);
+        order.assignment = kind;
+        order.sent = true;
+        s.ap--;
+        effect({silver: -fee()});
+        finish("派驻");
+        openLocation(place);
+      }, capture ? "choice-btn location-capture" : "choice-btn", disabled);
+      actions.append(addPreview(action, "1 行动点 · " + fee() + " 两｜旬末" + reward));
+    }
+    if (job && job.target) option("布控缉拿 · " + people[job.target].name, "capture", "收押" + people[job.target].title, full);
+    const ledger = job && job.kind === "card";
+    option("暗访打探", ledger ? "card" : "intel", ledger ? "缴获盐引账（重复折银与情报）" : "情报+10");
+    option("搜刮查抄", "silver", "得银50～90两");
+    modal("modal-location");
+    $("location-leave").focus();
+    $("location-leave").onclick = () => {
+      render();
+      $("map-pins-container").children[place].focus();
+    };
   }
 
   function interrogate(p, method) {
@@ -397,16 +538,13 @@
       sound.play("hit");
       p.defense -= 35;
       p.health -= tortureDamage();
-      p.quote = source.torture_quote;
     } else if (method === "threat") {
       p.defense -= 20;
-      p.quote = "厂公息怒……容我细想。";
     } else {
       effect({silver: -30});
       p.defense -= 15;
       p.compliance = clamp(p.compliance + 25, 100);
       p.health = clamp(p.health + 10, 100);
-      p.quote = source.bribe_quote;
     }
     p.defense = Math.max(0, p.defense);
     p.health = Math.max(0, p.health);
@@ -462,7 +600,16 @@
     $("camp-bg-img").setAttribute("src", "./assets/camp_lv" + Math.min(2, s.hall) + ".jpg");
     $("camp-level-name").textContent = "西厂 · " + ["破败空宅", "肃杀厂署", "权倾朝野"][s.hall - 1] + " (Lv." + s.hall + ")";
     $("camp-capacity-text").textContent = "番子编制：" + maxAp() + " / " + capacity() + " 队";
-    const hint = s.turn === 1 ? "先招募一队番子，获得 1 点行动点。" : mainQuest();
+    let hint = mainQuest();
+    const assigned = s.jobs.find(j => j.sent && (j.assignment || j.kind) === "capture");
+    const lead = s.jobs.find(j => j.target === nextTarget());
+    if (lead && !lead.sent) hint = places[lead.place][0] + "传来线报。" + hint;
+    if (assigned) hint = "缉拿" + people[assigned.target].name + "的人已经出门，回营结旬听报吧。";
+    if (s.turn === 1) hint = s.crew.length ? "名册有了人，结旬后随我去西市。" : "空衙门办不了案。拨一百两招一队番子，便有一点行动力。";
+    if (s.turn === 4) hint = "今日起，旬末还有御前奏折等你落印。" + hint;
+    if (s.turn === 5) hint = "密档阁已开，营中也能动工扩建了。" + hint;
+    if (s.turn >= 6) hint = "御限连今日还余" + (16 - s.turn) + "旬。" + hint;
+    if (s.favor < 30) hint = "御前已有人问起你的差事。少伸手索银，奏折里拣能挽回圣眷的办。" + hint;
     const roster = [...new Set(s.crew)];
     if (s.note.startsWith("新番子入署")) roster.splice(roster.indexOf(s.crew[s.crew.length - 1]), 1);
     $("camp-thought").textContent = [storageWarning, s.note, hint,
@@ -489,13 +636,13 @@
     $("map-pins-container").replaceChildren(...places.map(([name, x, y], i) => {
       const j = s.jobs.find(job => job.place === i);
       const active = j && !j.sent;
-      const b = button(name, () => dispatch(j), "map-pin" + (active ? " has-event" : ""), !active || !s.ap);
+      const b = button(name, () => openLocation(i), "map-pin" + (active ? " has-event" : ""));
       b.style.left = x + "%";
       b.style.top = y + "%";
       if (active) b.prepend(node("span", "pin-dot"));
       return b;
     }));
-    $("map-dispatch-summary").textContent = "每处耗 1 行动点、" + fee() + " 两。 " +
+    $("map-dispatch-summary").textContent = "点地名察看线报，选定差事才派驻。 " +
       s.jobs.map(j => places[j.place][0] + " · " + jobName(j) + (j.sent ? "（已派驻）" : "")).join("；") +
       " " + mainQuest();
   }
@@ -513,7 +660,7 @@
       portrait.alt = src.name;
       const bio = node("div");
       bio.append(node("div", "prisoner-name", src.name), node("div", "prisoner-title", src.title),
-        node("div", "prisoner-quote", p.quote));
+        node("div", "prisoner-quote", src.testimony[p.defense > 60 ? "defiant" : p.defense > 30 ? "wavering" : "broken"]));
       header.append(portrait, bio);
       card.append(header);
       for (const [key, name] of [["defense", "防线"], ["health", "体魄"], ["compliance", "顺从度"]]) {
@@ -728,6 +875,7 @@
     if (!saved || !Number.isInteger(saved.turn) || !Array.isArray(saved.inmates))
       throw new Error("存档格式有误");
     const progress = {...fresh(), ...saved};
+    if (!saved.recentEvents && saved.event) progress.recentEvents = [saved.event];
     progress.cards = [...new Set(progress.cards)];
     if (saved.version !== 2 && progress.crew.length) {
       progress.ap = Math.max(0, progress.ap - 1);
@@ -749,7 +897,9 @@
   }
 
   function soundLabel() {
-    $("settings-sound").textContent = muted ? "音效 · 静音" : "音效 · 开启";
+    $("settings-sound").textContent = "交互音效：" + (muted ? "关" : "开");
+    $("settings-music").textContent = "背景音乐：" + (musicEnabled ? "开" : "关");
+    $("settings-music").setAttribute("aria-pressed", String(musicEnabled));
     $("settings-sound").setAttribute("aria-pressed", String(!muted));
   }
 
@@ -774,6 +924,15 @@
     $("settings-cancel").onclick = () => s.phase === "ending" ? closeSettings() : settingsMenu();
     $("modal-settings").onkeydown = event => {
       if (event.key === "Escape") closeSettings();
+    };
+    $("settings-music").onclick = () => {
+      musicEnabled = !musicEnabled;
+      music.sync();
+      soundLabel();
+      try {
+        localStorage.setItem(MUSIC_KEY, musicEnabled ? "on" : "off");
+        $("settings-status").textContent = "";
+      } catch { $("settings-status").textContent = "音乐已切换，浏览器无法保存偏好。"; }
     };
     $("settings-sound").onclick = () => {
       muted = !muted;
@@ -823,8 +982,12 @@
   }
 
   async function boot() {
-    try { muted = localStorage.getItem(SOUND_KEY) === "muted"; }
+    try {
+      muted = localStorage.getItem(SOUND_KEY) === "muted";
+      musicEnabled = localStorage.getItem(MUSIC_KEY) !== "off";
+    }
     catch { /* Sound preferences are optional when storage is unavailable. */ }
+    music.bind();
     sound.bind();
     $("intro-text").textContent = "正在读取开场卷宗……";
     $("intro-overlay").onclick = () => {

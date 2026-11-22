@@ -130,13 +130,17 @@
       position: relative;
       z-index: 2;
       text-align: right;
-      font-size: 11px;
-      color: var(--text-muted);
+      font-size: 13px;
+      color: #f4d593;
       letter-spacing: 2px;
       margin-top: 16px;
-      animation: blink 1.6s infinite;
+      text-shadow: 0 1px 3px #000;
     }
-    @keyframes blink { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+    .mentor-name { display: block; color: var(--gold-main); font-style: normal; margin-bottom: 4px; }
+    #location-actions .location-capture { background: var(--cinnabar-dim); border-color: var(--cinnabar-bright); }
+    #location-actions button { display: block; }
+    #location-leave { width: 100%; margin-top: 12px; }
 
     /* ==================== 1. 顶部常驻状态栏 ==================== */
     .top-bar {
@@ -579,8 +583,9 @@
           </div>
         </div>
 
-        <div class="thought-bubble" id="camp-thought">
-          内心：五百两天使轮融资，连把像样的椅子都没有。先招两个实习生（番子）把架子搭起来吧。
+        <div class="thought-bubble">
+          <strong class="mentor-name">监军 · 陈公公</strong>
+          <span id="camp-thought"></span>
         </div>
 
         <!-- 招募番子 -->
@@ -608,7 +613,7 @@
           <div id="map-pins-container"></div>
         </div>
         <div class="map-log-box" id="map-dispatch-summary">
-          点击地图上亮起红点的区域派驻番子，旬末统一结算战果。
+          点地名察看线报，选定差事后派驻番子。
         </div>
       </section>
 
@@ -673,6 +678,16 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="modal-location" role="dialog" aria-modal="true" aria-labelledby="location-name">
+      <div class="modal-box">
+        <h2 class="modal-title" id="location-name"></h2>
+        <p class="modal-desc" id="location-desc"></p>
+        <p class="modal-desc" id="location-status" aria-live="polite"></p>
+        <div class="choice-list" id="location-actions"></div>
+        <button type="button" class="btn-primary" id="location-leave">离开此地</button>
+      </div>
+    </div>
+
     <div class="modal-backdrop" id="modal-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <div class="modal-box">
         <h2 class="modal-title" id="settings-title">设置</h2>
@@ -680,7 +695,8 @@
         <div class="choice-list">
           <div id="settings-menu">
             <div class="choice-list">
-              <button class="choice-btn" id="settings-sound" type="button">音效 · 开启</button>
+              <button class="choice-btn" id="settings-music" type="button">背景音乐：开</button>
+              <button class="choice-btn" id="settings-sound" type="button">交互音效：开</button>
               <button class="choice-btn" id="settings-save" type="button">手动存档</button>
               <button class="choice-btn" id="settings-load" type="button">读取存档</button>
               <button class="choice-btn" id="settings-restart" type="button">重新开始</button>
