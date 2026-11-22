@@ -1,0 +1,61 @@
+[
+  {
+    "id": "ev_dongchang_snatch",
+    "tag": "部门内卷",
+    "title": "东厂抢功",
+    "desc": "东厂档头半路截胡了你查到的贪腐案，反手去御前邀功。（内心：好家伙，古代也有抢 PPT 汇报的同事。）",
+    "trump_dossier_id": null,
+    "choices": [
+      {
+        "seal": "忍",
+        "text": "咽下这口气，暗中记在小本本上",
+        "effects": { "favor": -5, "dread": -5, "intel": 10 }
+      },
+      {
+        "seal": "掀",
+        "text": "直接捅到御前，揭穿东厂包庇余党",
+        "effects": { "favor": 10, "dread": 10, "silver": -50 }
+      }
+    ]
+  },
+  {
+    "id": "ev_emperor_money",
+    "tag": "老板画饼",
+    "title": "修缮豹房缺银",
+    "desc": "皇帝传口谕，内帑空虚，问西厂近来抄家有没有孝敬。（内心：老板又来问初创部门要利润了。）",
+    "trump_dossier_id": null,
+    "choices": [
+      {
+        "seal": "献",
+        "text": "忍痛奉上 150 两银子，表忠心",
+        "effects": { "silver": -150, "favor": 15 }
+      },
+      {
+        "seal": "哭",
+        "text": "哭穷说西厂刚起步，连房顶都漏雨",
+        "effects": { "favor": -10, "dread": -5 }
+      }
+    ]
+  },
+  {
+    "id": "ev_censor_impeach",
+    "tag": "朝堂危机",
+    "title": "御史联名弹劾",
+    "desc": "三名言官在午门外痛哭流涕，弹劾西厂滥用私刑，请皇帝裁撤西厂。",
+    "trump_dossier_id": "d_hubu_clerk",
+    "trump_text": "甩出《盐引分赃账》反咬言官收受贿赂！",
+    "trump_effects": { "favor": 20, "dread": 20 },
+    "choices": [
+      {
+        "seal": "抓",
+        "text": "连夜派番子把带头言官请进诏狱喝茶",
+        "effects": { "dread": 15, "favor": -10 }
+      },
+      {
+        "seal": "买",
+        "text": "花 100 两打点司礼监，把折子压下来",
+        "effects": { "silver": -100, "favor": 5 }
+      }
+    ]
+  }
+]

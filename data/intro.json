@@ -1,0 +1,48 @@
+[
+  {
+    "id": "intro_1",
+    "scene": "black",
+    "sfx": "heartbeat",
+    "speaker": "旁白",
+    "style": "modern_thought",
+    "text": "凌晨三点，改完第 18 版 PPT，眼前一黑……"
+  },
+  {
+    "id": "intro_2",
+    "scene": "flash_to_palace",
+    "bg": "assets/bg_emperor.jpg",
+    "camera": "slow_zoom_in",
+    "speaker": "成化帝（屏风后）",
+    "style": "ancient_dialogue",
+    "text": "东厂办案太慢，锦衣卫又与外臣勾连。"
+  },
+  {
+    "id": "intro_3",
+    "scene": "palace",
+    "speaker": "成化帝（屏风后）",
+    "style": "ancient_dialogue",
+    "text": "朕特设西厂，由你提督。赐银五百两，三月内，朕要京城鸦雀无声。"
+  },
+  {
+    "id": "intro_4",
+    "scene": "palace_shake",
+    "sfx": "record_scratch",
+    "speaker": "你（内心）",
+    "style": "modern_thought",
+    "text": "等等……大明？西厂？我这是直接空降成厂长了？"
+  },
+  {
+    "id": "intro_5",
+    "scene": "palace",
+    "speaker": "你（内心）",
+    "style": "modern_thought",
+    "text": "五百两天使轮融资，三月 KPI 不达标就砍头……这老板比我前司还黑。"
+  },
+  {
+    "id": "intro_6",
+    "scene": "stamp_decree",
+    "sfx": "heavy_stamp",
+    "stamp_text": "钦命西厂",
+    "next_view": "view-camp"
+  }
+]

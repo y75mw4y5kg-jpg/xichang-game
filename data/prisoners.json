@@ -1,0 +1,58 @@
+[
+  {
+    "id": "p_salt_merchant",
+    "name": "钱万贯",
+    "title": "西市私盐商",
+    "avatar": "assets/char_merchant.jpg",
+    "defense": 100,
+    "health": 100,
+    "compliance": 0,
+    "intro_quote": "厂公饶命！小的只是倒腾点私盐，上面有人罩着啊！",
+    "torture_quote": "啊——别打了！我说，是户部主事收了我的孝敬！",
+    "bribe_quote": "厂公好酒好菜待我……小的愿做西厂在西市的耳目。",
+    "loot_silver": 220,
+    "unlocks_dossier": {
+      "id": "d_hubu_clerk",
+      "title": "《西市盐引分赃账》",
+      "grade": "要案",
+      "target": "户部主事",
+      "desc": "详录户部主事私吞盐税的铁证，可顺藤摸瓜拿人，或直接敲诈。"
+    },
+    "next_target_id": "p_hubu_clerk"
+  },
+  {
+    "id": "p_hubu_clerk",
+    "name": "周文礼",
+    "title": "户部主事",
+    "avatar": "assets/char_official.jpg",
+    "defense": 120,
+    "health": 90,
+    "compliance": 0,
+    "intro_quote": "本官乃朝廷命官，你们西厂凭什么私设公堂？",
+    "torture_quote": "别上夹棍！账本在侍郎大人府上，我只是个跑腿的！",
+    "bribe_quote": "厂公若能保我性命，户部的一举一动我皆密报于您。",
+    "loot_silver": 350,
+    "unlocks_dossier": {
+      "id": "d_hubu_minister",
+      "title": "《户部侍郎军饷亏空密账》",
+      "grade": "绝密",
+      "target": "户部侍郎",
+      "desc": "扳倒户部侍郎的致命铁证（完成首份御前 KPI 的关键底牌）。"
+    },
+    "next_target_id": "p_hubu_minister"
+  },
+  {
+    "id": "p_hubu_minister",
+    "name": "严嵩年",
+    "title": "户部侍郎（KPI 目标）",
+    "avatar": "assets/char_official.jpg",
+    "defense": 150,
+    "health": 100,
+    "compliance": 0,
+    "intro_quote": "竖子安敢辱我！明日早朝，内阁诸公必参你一本！",
+    "torture_quote": "咳血……西厂狠毒，老夫认栽……",
+    "bribe_quote": "老夫愿奉上万两白银，只求厂公高抬贵手。",
+    "loot_silver": 800,
+    "is_kpi_target": true
+  }
+]
